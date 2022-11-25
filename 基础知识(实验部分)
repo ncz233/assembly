@@ -30,3 +30,59 @@ mov ah,78
 add ax,8
 指令add是加法运算,就是逗号右边的值加上逗号左边的值,然后逗号左边的值等于右边已经加过的值,类似于C语言中的+=
 最后得到的是ax=7810(因为是16进制)
+
+mov bx,ax
+add ax,bx
+
+mov ax,0
+mov ax,93
+add al,85
+溢出了,看到的是高位舍弃,但是前面的溢出值跑到其他的地方去了
+
+mov ax,0
+mov al,93
+add ax,85
+16位寄存器进行16位运算保存16位数据
+没有溢出,因为加在ax上,ax上是4个十六进制数字,所以没有溢出
+寄存器是互相独立的,al就是al,ah就是ah,ax就是ax不会互相影响
+
+mov ax,4e20
+add ax,1406
+mov bx,2000
+add ax,bx
+mov bx,ax
+add ax,bx
+最后明显超过了,溢出了,只能保存后面的16位进制
+寄存器是互相独立的,al就是al,ah就是ah,ax就是ax不会互相影响
+
+add al,100
+add ax,10000
+add al,bx
+是不行的因为,韩信带净化,要保证 数据与寄存器 或者 寄存器与寄存器 之间的一致性
+
+练习自己找或者自己出题练习去
+mov ax,f4a3
+mov ah,31
+mov al,23
+add ax,ax
+mov bx,826c
+mov cx,ax
+mov ax,bx
+add ax,bx
+mov al,bh
+mov ah,bl
+add ah,ah
+add a1,6
+add al,al
+mov ax,cx
+最后得到的是ax=6246
+
+用汇编指令计算2^4次方
+mov ax,0
+mov al,2
+add al,al
+add al,al
+add al,al
+
+ax,bx,cx,dx都是数据寄存器
+地址寄存器
