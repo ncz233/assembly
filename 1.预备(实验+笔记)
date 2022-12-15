@@ -977,3 +977,83 @@ exe和系统分配内存重要的概念
 ;exe被系统启动 事实上就是分配内存的过程 安全的内存 描述信息知道你要多大内存
 ;操作系统是管理内存的 系统就要分配给程序内存
 ;源文件中安排自己的代码 自己的数据 自己的栈 通过编译分成多个asm文件然后再把asm编译成obj文件,然后链接把多个obj文件连接再一块组成exe文件
+
+
+内存的访问方式[bx]代替[0]
+数据从哪里来 ds:[0] ds:[1]
+数据的长度 字节 字型 现在还没有自己定义数据段 编程 偏移地址寄存器 bx
+	;mov ax,ds:[0]
+	;mov bl,ds:[0]	
+;假设是我们自己定义的数据段 都是字型数据  
+	mov bx,0
+	mov ax,ds:[bx]
+	add bx,2
+	mov ax,ds:[bx]
+	add bx,2
+	mov ax,ds:[bx]	;和数组类似	
+;假设10H是我们自己定义的数据段 字节型数据 从10H开始
+	mov bx,10H
+	mov al,ds:[bx]
+	add bx,1
+	mov al,ds:[bx]		
+	add bx,1
+	mov al,ds:[bx]
+
+[bx]的问题
+程序和内存中的情况如下图所示,写出程序执行后,21000H~21007H 内存单元中的内容
+新的指令inc是increase的简写是增加的意思将dx中的值加1,说白了就是c中的++运算,相比add节约内存还有后面要学的
+21000H be
+21001H 00
+21002H 00
+21003H 00
+21004H 00
+21005H 00
+21006H 00
+21007H 00
+
+mov ax,2000H
+mov ds,ax
+mov bx,1000H
+mov dl,0eh
+mov ds:[bx], dl
+mov ax,ds:[bx]
+inc bx
+inc bx
+mov ds:[bx],ax
+inc bx
+inc bx
+mov ds:[bx],ax
+inc bx
+mov ds:[bx],al
+inc bx
+mov ds:[bx],al
+偏移的思想 比如 1000+0 1000+1....
+我们是如何安排内存的
+
+loop指令
+假设 我们要向 2000H:1000H 这里开始填写0123456789abcdef 这些字节数据,通过编程应该怎么做
+mov ax,2000H
+mov ds,ax
+mov bx,1000H
+mov dl,0
+
+mov ds:[bx],dl
+inc dl
+inc bx
+
+mov ds:[bx],dl
+inc dl
+inc bx
+......一共16个(笨办法)
+有什莫指令可以不用复制重复的指令呢
+接近的办法 我们要不断的执行那3条指令?执行16次(除了look要讲的指令)
+我们如何让cpu不断的执行这3条指令? 可以使用jmp去修改cpu中IP寄存器的值就可以了
+但是再源文件中不能 jmp 000aH 这样写的,再debug可以这样写 所以在inc bx的下一个ip地址写上jmp 000a就行了,但是一个死循环
+那再源文件中如何写呢? 
+jmp setNumber ;标号(内存地址) 标识 jmp 000aH,也就是setNumber=000aH, 然后再把标号添加到要跳转到的地方 如下(有点像c的goto语句)
+setNumber:	mov ds:[bx],dl
+		inc dl
+		inc bx
+		jmp setNumber
+为什么不是之前的000a地址呢?因为你在前面写东西地址肯定会跟着你写的内容发生变化,这样写的灵活
+
