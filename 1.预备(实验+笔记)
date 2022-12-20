@@ -1272,3 +1272,37 @@ code ends
 end
 
 在代码段中安排自己定义的栈空间
+完成下面的程序,利用栈 将程序中定义的数据逆序存放
+assume cs:code
+
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H	;如何看待内存的,那里是数据 哪里是指令
+		;那里是栈,我们该怎么做,通过设置ss和sp就可以了,我们先设置一段数据,然后再把这一段空间当作栈就可以了
+		dw 0,0,0,0,0,0,0,0	;dw存放注意这个是字型数据,也就是32个字节数据 
+		dw 0,0,0,0,0,0,0,0
+
+start:		mov ax,cs	;我们不能把栈段地址写固定,因为不同的系统会变,所以要写个和cs一样的段地址
+		mov ss,ax
+		mov sp,30H
+	
+		mov bx,0
+		mov cx,8
+
+retNumber:	push cs:[bx]
+		add bx,2
+		loop retNumber	;完成已经入栈,剩下的只要弹出就是逆序的了
+		
+		mov bx,0
+		mov cx,8
+
+popdata:		pop cs:[bx]
+		add bx,2
+		loop popdata
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+end
+我们以前是在debug中随便找了块内存当做栈空间使用的,而这是不安全的
+而我们写在源文件上的会编译成exe文档 在debug的时候,且系统分配给他内存是安全的
+耐心的分析内存,那里是数据,哪里是栈,哪里是指令
