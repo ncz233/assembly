@@ -1306,3 +1306,101 @@ end
 我们以前是在debug中随便找了块内存当做栈空间使用的,而这是不安全的
 而我们写在源文件上的会编译成exe文档 在debug的时候,且系统分配给他内存是安全的
 耐心的分析内存,那里是数据,哪里是栈,哪里是指令
+
+监测点
+下面的程序实现依次用内存0:0~0:15单元中的内容改写程序中的数据 完成程序
+assume cs:code
+
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H
+
+start:		mov ax,0
+		mov ds,ax
+		mov bx,0	;ds=0 bx=0
+
+		mov cx,8
+
+retNumber:	mov ax,ds:[bx]	;ax是16位寄存器
+		mov cs:[bx],ax
+		add bx,2
+		loop retNumber
+		
+		mov ax,4c00H
+		int 21H
+
+code ends
+end start
+
+下面的程序实现依次用内存0:0~0:15单元中的内容改写程序中的数据 数据传输用栈来进行,栈空间设置在程序内,完成程序
+assume cs:code
+
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H	;内存的分配搞清楚 我们程序的数据
+		dw 0,0,0,0,0,0,0,0	;这里16个字节是我们的栈空间
+
+start:		mov ax,0
+		mov ds,ax
+		mov bx,0	;ds=0 bx=0
+
+		mov ax,cs
+		mov ss,ax
+		mov sp,20H
+
+		mov cx,8
+
+retNumber:	push ds:[bx]	;ax是16位寄存器
+		pop cs:[bx]
+		add bx,2
+		loop retNumber
+		
+		mov ax,4c00H
+		int 21H
+
+code ends
+end start
+
+将数据,代码,栈放入不同段中
+我们将这些全部数据段,栈段,代码段放入一个code中显的非常混乱,然后ip不是从0开始的(所以他们呢占用了ip寄存器变化的范围)间接减少指令数量
+所以我们要用上伪指令,告诉编译器,这里怎么翻译,哪里怎么翻译
+assume cs:code, ds:data, ss:stack	;伪指令,告诉编译器,这里怎么翻译,哪里怎么翻译
+
+data segment
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H
+data ends
+
+stack segment stack ;这样写stack就不会有stack警告了
+		dw 0,0,0,0,0,0,0,0
+		dw 0,0,0,0,0,0,0,0
+stack ends
+
+code segment
+;start是记录了exe文件中的描述信息中
+;而系统加载exe文件的时候会根据描述信息中的入口地址在哪里对cs:ip这两个寄存器进行设置
+
+;以后设置数据和栈的时候就非常方便了
+;虽然它们的段地址都不一样,但是他们呢的物理地址相差无几,段地址×10+偏移地址=物理地址,自己试试看物理地址是否一样
+start:		mov ax,start(cs)
+		mov ss,ax
+		mov sp,30H
+
+		mov ax,data
+		mov ds,ax
+	
+		mov bx,0
+		mov cx,8
+
+retNumber:	push ds:[bx]
+		add bx,2
+		loop retNumber
+		
+		mov bx,0
+		mov cx,8
+
+popdata:		pop ds:[bx]
+		add bx,2
+		loop popdata
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+end start
+这样看着代码就不是非常杂了
