@@ -1404,3 +1404,55 @@ popdata:		pop ds:[bx]
 code ends
 end start
 这样看着代码就不是非常杂了
+
+实验
+编写,调试具有多个段的程序 段(segment)的编译(翻译)规则 内存的分布
+观察每个段(segment)编译后 实际占多少个字节
+assume cs:code, ds:data, ss:stack	
+data segment
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H
+data ends
+
+stack segment stack
+		dw 0,0,0,0,0,0,0,0
+stack ends
+
+code segment
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,16
+
+		mov ax,data
+		mov ds,ax
+	
+		push ds:[0]
+		push ds:[2]
+		pop ds:[2]
+		pop ds:[0]
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+end start
+问题
+cpu执行程序,程序返回前也就是程序执行完之前,data段中的数据为多少?8个字型数据
+cpu执行返回前,cs=076c ss=076b ds=076a
+设程序加载后code段地址为x,则data段的段地址为x+1: stack段地址为x+2
+
+下面一道题就是上一道题把数据段和栈段中的数据都变成两个
+问题
+程序返回前,data中数据为多少?4字节2字型
+返回前,cs=076c ss=076b ds=076a
+加载后,code段为x,data=x+2 stack=x+1
+如果段中的数据占n字节,则程序加载后,该实际占有的空间为 n的最小16倍数,向上取整用公式((n%16)+1)*16
+最重要的结论,数据 栈段和指令段的数据都是 n/16向上取整 的 最后得到的都是16的倍数 差不多和c中内存对齐一样.
+
+下面一提就是将code移动到了最上面
+问题
+程序返回前,data中数据为多少?4字节2字型
+返回前,cs=076a ss=076e ds=076d
+加载后,code段为x,data=x+2 stack=x+1
+这节课,一个段(segment)最少占用16个字节其次的都是16的倍数
+
+程序如下,编写code段中的代码,将a段和b段中的数据依次相加,将结果存到c段中
