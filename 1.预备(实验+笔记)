@@ -1472,3 +1472,100 @@ dw是字型数据 db是字节型数据
 
 and和or指令
 先讲一下,更灵活的内存地址定位方法
+已知bx一般设置成ds的偏移地址寄存器
+我们可以用si和di偏移地址寄存器
+这样我们就有了,两个偏移地址寄存器使用了,怎么用? ds:[bx+si] ds:[bx+di]
+这样就可以更灵活了,反应了ds:[这里的东西可以做+-运算的]
+逻辑运算指令and 和 or
+按照二进制位运算的类似c中的&& ||
+案例代码如下
+assume cs:code, ds:data, ss:stack	
+data segment
+		dw 0123H,0456H,0789H,0abcH,0defH,0fedH,0cbaH,0987H
+data ends
+
+stack segment stack
+		db 128 dup(0)	;128个字节数据,用0写入
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov ax,0
+		mov al,00001111B
+		and al,11110000B	;与运算 将相对应的位2个为1运算结果才为1,就是c中的&&
+		;000000B	;就是将对应的位 设置为0 其它位不变,就是两个都为1为1,其他为0
+		
+		mov al,00001111B	;或运算 or 将相对应的位 只要有一个是1 那么运算结果就是1
+		or al,11110000B	
+		;11111111B	;就是将 先对应的位 设置为 1 其他 位不变
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+end start
+
+以字符形式给出数据
+ASCII表 字符 = 符号 是一种图形 有1234... abcd...
+ASCII是一张编码表
+信源 编码 信道 (噪音) 译码 信宿
+用通俗易懂的方式来说
+信源:嘴巴,开始的地方
+编码:对声波进行编码(大家之间的约定),用同一种编码语言
+信道:通过空气传播,通过xxx传播
+(噪声):相当于干扰
+译码:声音到了你的耳朵中,你知道我在说什么东西
+信宿:到了你的大脑里,到了归宿的地方?
+开始下面的案例
+assume cs:code, ds:data, ss:stack	
+data segment
+		;db 48,49,50,51,52,53	;因为是符号的编码是字节型,所以写成字节型,这样写行,但是写的麻烦记不住,所以用下面的
+		;db 65,66,67,68,69,70
+		;db 97,98,99
+		db 'hello world'	;用这种方法记得加单引号,比上面的硬写ASCII表好多了吧,说白了就是字符串
+		;记住在ASCII表左边是不能被打印出来的也就是控制字符,能打印出来的是打印字符
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov ds,data
+		mov bx,0
+	
+		mov al,'a'	;这样也是可以的,反正要输入字符的话需要加''号才行
+		mov al,'b'
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+下去思考 它的二进制写法 and or 字符 大小写的转换问题
+a=91=61H = 0110 0001
+A=65=41H = 0100 0001
+为什么要这样编码它们之间的关系
+
+字母的大小写转换
+先看一组
+A	41H	0100 0001
+B	42H	0100 0010
+C	43H	0100 0011
+
+a	61H	0110 0001
+b	62H	0110 0010
+c	63H	0110 0011
+
+有个高位地址的左数第3个不一样其他全一样所以要小写->大写要and 1101 1111
