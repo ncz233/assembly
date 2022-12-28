@@ -1569,3 +1569,217 @@ b	62H	0110 0010
 c	63H	0110 0011
 
 有个高位地址的左数第3个不一样其他全一样所以要小写->大写要and 1101 1111
+同理大写->小写要or 0010 0000
+然后有一道编程题
+assume cs:code, ds:data, ss:stack	
+data segment
+		db 'BaSic'		;将第一个字符串转换成大写
+		db 'Hello World'	;将第二个字符串转换成小写
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,5
+upLetter:		mov al,ds:[bx]
+		and al,11011111B
+		mov ds:[bx],al
+		inc bx
+		loop upLetter
+	
+		mov cx,10
+		mov bx,5
+lowLetter:		mov al,ds:[bx]
+		and al,00100000B
+		mov ds:[bx],al
+		inc bx
+		loop lowLetter
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+它们编码表的编码目的 就是我们可以有一个更快的运算方式 判断(以后会学) 逻辑运算(&& ||)运行非常快 使得程序更加快
+数据的安排
+
+新的一种访问内存单元的的方式
+ds:[bx+数字]
+然后自己去debug中做小实验去
+然后写一段代码,而这段代码就是上一个代码,不过数据段中的数据的长度是一样的
+assume cs:code, ds:data, ss:stack	
+data segment
+		db 'BaSic'	;将第一个字符串转换成大写
+		db 'Hello'	;将第二个字符串转换成小写
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,5
+upLetter:		mov al,ds:[bx]
+		and al,11011111B
+		mov ds:[bx],al
+		inc bx
+		loop upLetter
+	
+		mov cx,5
+		mov bx,5
+lowLetter:		mov al,ds:[bx]
+		and al,00100000B
+		mov ds:[bx],al
+		inc bx
+		loop lowLetter
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+但内存分配是非常重要的,要看清楚结构,这里的数据段差了5所以ds:[bx+5]就可以简化一下代码了
+assume cs:code, ds:data, ss:stack	
+data segment
+		db 'BaSic'	;将第一个字符串转换成大写
+		db 'Hello'	;将第二个字符串转换成小写
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,5
+upLetter:		mov al,ds:[bx]
+		mov ah,ds:[bx+5]
+		and al,11011111B
+		or ah,00100000B
+		mov ds:[bx],al
+		mov ds:[bx+5],ah
+		inc bx
+		loop upLetter
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+内存的分配是整个汇编课程的最重要的东西,更灵活的访问内存了
+上一章的题目程序如下,编写code段中的代码,将a段和b段中的数据依次相加,将结果存到c段中
+assume cs:code
+a segment
+	db 1,2,3,4,5,6,7,8	;记着内存对齐最少16字节
+a ends
+
+b segment
+	db 1,2,3,4,5,6,7,8
+b ends
+
+c segment
+	db 0,0,0,0,0,0,0,0
+c ends
+
+code segment
+start:		mov ax,0
+		mov bx,0
+		mov cx,8
+		mov ax,a	;运行一次观察内存,就可以知道abc它们几个段的内存地址了,所以后边就不用b,c了
+		mov ds,ax
+
+addNumber:	mov al,ds:[bx]
+		add al,ds:[bx+16]
+		mov ds:[bx+32],al
+		inc bx
+		loop addNumber
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+要观察内存的排列得到一个规律,几块我们的程序运行速度
+更灵活访问内存的方式
+
+si和di偏移地址寄存器
+先看一段代码,使用si和di实现将字符串'hello world'移动到......中
+assume cs:code, ds:data, ss:stack	
+data segment
+		db 'Hello World'
+		db '................'
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov si,0
+		mov di,11
+
+		mov cx,8
+addNumber:	mov ax,ds:[si]
+		mov ds:[di],ax
+		add si,2
+		add di,2
+		loop addNumber	;也可以用栈来,还可以用es寄存器来,推荐es寄存器因为逻辑更清晰了
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+[bx+si]和[bx+di]
+可以相加的
