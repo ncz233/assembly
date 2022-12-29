@@ -1782,4 +1782,128 @@ code ends
 end start
 
 [bx+si]和[bx+di]
-可以相加的
+可以相加的,很简单就是寄存器中的值相加得到的偏移地址
+自己去debug中做个小实验去
+小实验:
+数据段:2000:1000 be 00 06 00 6a 22 ......
+mov ax,2000H
+mov ds,ax
+mov bx,0
+mov bx,1000H
+mov si,0
+mov ax,ds:[bx+si]
+inc si
+mov cx,ds:[bx+si]
+inc si
+mov di,si
+add cx,ds:[bx+di] = 0606
+
+[bx+si+数字]和[bx+di+数字]
+就是三个值相加得到偏移地址
+小实验:
+数据段:2000:1000 be 00 06 00 6a 22 ......
+mov ax,2000H
+mov ds,ax
+mov bx,0
+mov bx,1000H
+mov si,0
+mov ax,ds:[bx+si+2]
+inc si  
+mov cx,ds:[bx+si+2]
+inc si
+mov di,si
+mov cx,ds:[bx+di+2] = 226a
+
+不同的寻址方式的应用
+编程1,将data段中每个单词的头一个字母改为大写,先看他在内存中的是怎么存放的
+assume cs:code, ds:data, ss:stack
+data segment
+		db '1.file          '
+		db '2.edit          '
+		db '3.seach         '
+		db '4.view          '
+		db '5.options       '
+		db '6.help          '
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov si,0
+
+		mov cx,6
+setNumber:	mov al,ds:[bx+2+si]
+		and al,11011111B
+		mov ds:[bx+2+si],al
+		add si,16
+		loop setNumber
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+编程2,将data段中每个单词的字母改为大写,先看他在内存中的是怎么存放的
+要4行每行3个(0~2)
+assume cs:code, ds:data, ss:stack
+data segment
+		db 'fil             '
+		db 'edi             '
+		db 'sch             '
+		db 'vie             '
+		dw 0	;尽量多一个出来有用来存东西最好少用寄存器,因为有限,或者用栈,栈比较好
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,4
+one:		push cx
+		mov cx,3
+
+two:		mov si,cx
+		mov al,ds:[bx+si-1]
+		and al,11011111B
+		mov ds:[bx+si-1],al
+		loop two	;(专业点 upRow)
+
+		add bx,16
+		pop cx
+		loop one	;(同理upletter)
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+编程3
