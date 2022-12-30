@@ -1906,4 +1906,111 @@ code ends
 
 end start
 
-编程3
+编程3,将data段中每个单词的前4个字母改为大写
+与前一道题不同点:数据在内存中的分布不同
+我们编写代码的时候 需要用不同的访问内存的方式 去访问这些数据
+assume cs:code, ds:data, ss:stack
+data segment
+		db '1. display      '
+		db '2. brows        '
+		db '3. replace      '
+		db '4. modify       '
+		dw 0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,4
+
+one:		push cx
+		mov si,0
+		mov cx,4
+
+two:		mov al,ds:[bx+3+si]
+		and al,11011111B
+		mov ds:[bx+3+si],al
+		inc si
+		loop two
+
+		add bx,16
+		pop cx
+		loop one	;名字可以起的专业一点比如(upRow和upLetter)
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+这章的最后一课运行上面的代码,并改进,并作笔记
+之所以重视数据在个地址内存中这个问题,是因为寻址方式的适当应用,使我们可以 以 一种 更合理的结构来看待 所要处理的数据
+assume cs:code, ds:data, ss:stack
+data segment
+		db '1. display      '
+		db '2. brows        '
+		db '3. replace      '
+		db '4. modify       '
+		dw 0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov cx,4
+
+one:		push cx
+		;mov si,0	;不用si偏移地址寄存器,可以还用bx,但是需要入栈
+		push bx
+		mov cx,4
+
+two:		;mov al,ds:[bx+3+si]	;数据在内存中 从哪里开始 逻辑清晰 阅读方便 偏移的思想
+		mov al,ds:[bx+3]
+		and al,11011111B
+		;mov ds:[bx+3+si],al
+		mov ds:[bx+3],al
+		inc bx
+		loop two
+
+		;如果用到了入栈两次的话,需要注意先进后出的原则
+		pop bx
+		add bx,16
+		pop cx
+		loop one	;名字可以起的专业一点比如(upRow和upLetter)
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+
+不通过寄存器来确定数据的长度
