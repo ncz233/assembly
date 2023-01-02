@@ -2014,3 +2014,73 @@ end start
 
 
 不通过寄存器来确定数据的长度
+1.怎么知道数据类型,看寄存器,是否是字节型和字型数据
+你add或者inc这样加法也是不行的,因为有限度
+mov bx:[0],1;该怎么放进去呢,没有类型的
+mov word ptr ds:[0],1 ;可以这么写,意思是将16位的1发到ds:[0]的位置上去
+mov byte ptr ds:[0],1 ;这个就是8位的1
+同理适用于add inc sum......命令
+这样不用通过寄存器就可以知道这个数据的长度了,word ptr是16位的, byte ptr是8位的
+
+数据长度的练习
+代码1.改变数据段中的值改成右边的想要的值
+assume cs:code, ds:data, ss:stack
+data segment
+		db 'DEC'	;公司名
+		db 'Ken 01sen'	;总裁名
+		dw 137	;排名	-> 38
+		dw 40	;收入	-> 增加70
+		db 'PDP'	;著名产品	-> 'VAX'
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov word ptr ds:[12],38
+		add word ptr ds:[14],70
+
+		mov si,0
+		mov bx,10H
+
+		mov word ptr ds:[bx+si],'VA'
+		add si,2
+		mov byte ptr ds:[bx+si],'X'
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+div除法指令
+除数: 有8位和16位两种,在一个寄存器或者内存单元中
+被除数:	默认放在 ax 或者ax和dx中
+	如果除数为8位,被除数为16位,默认存放在ax中
+	如果除数为16位,被除数则为32位,dx存放高16位,ax存放低16位
+
+开始思考,数据是有长度的,8位和16位
+16	被除数
+3	除数
+5	商
+1	余数
+
+除数 03	被除数 0010H
+被除数存放在 -> ax中
+除数存放在->8位寄存器中 bl bh cl ch dl ch    内存中
+
+结果:	如果除数8位,则al存储除法操作的商,ah存储除法操作的余数
+	如果除数为16位,则ax存储
