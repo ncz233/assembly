@@ -2080,7 +2080,199 @@ div除法指令
 
 除数 03	被除数 0010H
 被除数存放在 -> ax中
-除数存放在->8位寄存器中 bl bh cl ch dl ch    内存中
+除数存放在->8位寄存器中 bl bh cl ch dl ch 或者 内存中
+怎么用?
+ 寄存器是 div bl
+ 内存中是 div byte ptr ds:[0]	;8位数据
+商存放在 ->al
+余数放在 ->ah
+代码
+assume cs:code, ds:data, ss:stack
+data segment
+		db 3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+		dw 0,0,0,0,0,0,0,0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,16
+		mov bl,3
+		div bl	;al=5 ah=1
+		div byte ptr ds:[0]	;也行 
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+如果除数是16位,那么被除数是32位,那32位该怎么存放呢,dx存放高16位,ax存放低16位,ax存储除法的商,dx存储除法操作的余数
+0003
+00 00 00 10H
+代码
+assume cs:code, ds:data, ss:stack
+data segment
+		db 16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+		dw 3,0,0,0,0,0,0,0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,ds:[0]
+		mov dx,ds:[2]
+		mov bx,3
+		;div bx	;ax=5商 dx=1余
+		div word ptr ds:[10H] ;这样也行
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
 
 结果:	如果除数8位,则al存储除法操作的商,ah存储除法操作的余数
-	如果除数为16位,则ax存储
+	如果除数为16位,则ax存储除法的商,dx存储除法操作的余数
+开始做编程题,已知一个寄存器大小是65535
+利用除法指令计算100001/100
+assume cs:code, ds:data, ss:stack
+data segment
+		db 0a1H,86H,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+		dw 100,0,0,0,0,0,0,0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,ds:[0]
+		mov dx,ds:[2]
+		mov dx,100
+		;div bx	;ax=03e8商 dx=1余
+		div word ptr ds:[10H] ;这样也行
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+利用除法指令计算1001/100
+assume cs:code, ds:data, ss:stack
+data segment
+		db e9H,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+		dw 100,0,0,0,0,0,0,0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,ds:[0]
+		mov bl,100
+		;div bl	;al=a商 ah=1余
+		div byte ptr ds:[10H] ;这样也行
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+如果是1001/256, 那需要的是16位的运算
+assume cs:code, ds:data, ss:stack
+data segment
+		db 0e9H,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+		dw 256,0,0,0,0,0,0,0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,ds:[0]
+		mov dx,ds:[2]
+		mov bx,256
+		;div bl	;ax=3商 dx=0e9H余
+		div word ptr ds:[10H] ;这样也行
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+div指令的一个问题
+ax=0ffffH
+dx=1
+bx=1	;认为结果是dx=1 ax=0ffffH
+div bx	;dx=余数 ax=商,有问题但过一会 会将 别急
+会报错,原因是溢出
