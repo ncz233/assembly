@@ -2276,3 +2276,56 @@ dx=1
 bx=1	;认为结果是dx=1 ax=0ffffH
 div bx	;dx=余数 ax=商,有问题但过一会 会将 别急
 会报错,原因是溢出
+
+dd伪指令,是用来定义数据长度的和db,dw一样
+db define byte	定义字节	8位
+dw define word	定义字型	16位
+dd define dword	定义双型节 	32位
+dd define dword(double word)
+编程题
+用div计算data段中的第一数据除以第二个数据,上存放在第三个存储单元中
+assume cs:code, ds:data, ss:stack
+data segment
+		dd 100001
+		dw 100
+		dw 0
+data ends
+
+stack segment stack
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+		dw 0,0,0,0
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,20H
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,ds:[0]
+		mov dx,ds:[2]
+		mov bx,ds:[4]
+		;div bx
+		div word ptr ds:[4]
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+dup伪指令,可以方便我们定义数据的时候太多要定义的数据时候用
+可用在db dw dd 可重复定义前面的数据
+假如要定义100字节型的0
+db 100 dup (0)
+假如是字符,那么是每一个字符是db类型并且重复10次
+db 10 dup ('123','abc')
+如果是dw dd呢
+是以将每一个字符或者数据拼接在一起,然后最后计算类型,看看要不要内存对齐
+可以看成数据或者字符紧凑的挨在一起最后看看有没有剩下的,让他单独呆在一个地方,然后看看是否需要内存对齐
