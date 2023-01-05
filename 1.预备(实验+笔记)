@@ -2329,3 +2329,68 @@ db 10 dup ('123','abc')
 如果是dw dd呢
 是以将每一个字符或者数据拼接在一起,然后最后计算类型,看看要不要内存对齐
 可以看成数据或者字符紧凑的挨在一起最后看看有没有剩下的,让他单独呆在一个地方,然后看看是否需要内存对齐
+
+数据访问的方式
+学到这里汇编最重要的是什么
+针对数据在内存中的排列 或者说分布 分配, 采取合适的 访问内存的方式 去读取数据 处理数据
+数据处理的2个基本问题
+数据的长度 byte ptr word ptr dd...
+数据从哪里来 如mov ax,ds:[0],mov ax,es:[0]. 这种形式的段地址+偏移地址就可以
+一些段地址有默认的偏移地址,反之 但我们可以强行的
+如 ds的默认偏移地址是bx,ss的默认地址是bp 反之
+代码
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,[bx]
+		mov ax,ds:[si]
+		mov ax,[bp]
+
+		mov ax,ds:[bp+si]
+		mov ax,ds:[bx*si/di-5]	;[里面数字]可以加减乘除,寄存器只能作加法运算
+
+以上是访问内存的方式
+		关键是数据在内存中的排列,自己怎么好受怎么来,要用合适的方式来访问
+
+给出内存的方式
+		有自定义的如 mov ax,1 叫立即数
+		有十进制,字符型,十六进制,二进制的形式给立即数 ,为了让我们阅读方便
+		mov ax,'a'
+		mov al,'0ffH'
+		mov al,00001111B
+
+数据的传递到现在有两种,一种寄存器,另一种栈
+		mov ax,bx
+		mov dx,ax
+		push bx
+		push ds:[0]
+		pop ds:[0]
+		pop bx
+
+采取格式访问内存的方式
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+实验7 寻址方式在结构化数据访问中的应用
+编程 将data段中的数据 按照如下格式 写入到 table 段中, 并且计算21年中的人均收入(取整)
+结果也按照下面的格式保存到table段中
