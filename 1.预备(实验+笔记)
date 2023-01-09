@@ -2504,3 +2504,154 @@ end start
 
 
 转移指令的原理
+转移指令就是可以修改ip 或者同时修改cs和ip的
+jmp	无条件转移指令
+loop	有条件转移指令	cx寄存器值
+call 下一章讲
+cpu执行 机器码 平时编程是汇编指令
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,1000H
+		jmp s
+		mov bx,1000H
+
+s:		mov ax,1000H	;eb04 0019
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+在不同位置的jmp,产生的编码和跳转目标的地址发生了变化
+为什么会这样
+
+offset操作符
+offset的功能是取得标号处的偏移地址,也就是start:这个标号的地址
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+s:		mov ax,offset start
+		mov bx,offset s
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+问题
+有如下程序段,添加 两条指令是改程序运行中将 s处的一条指令复制到s0处
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+s:		mov ax,bx	;占两个字节
+		mov si,offset s
+		mov di,offset s0
+
+		mov dx,cs:[si];-----------
+		mov cs:[di],dx;-----------	
+
+s0:		nop	;每个nop占一个字节
+		nop
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+jmp指令原理
+上面遗留下的问题
+在不同位置的jmp,产生的编码和跳转目标的地址发生了变化
+为什么会这样
+先回忆下指令的执行过程
+读取这个,并存放到指令缓存器中
+然后ip = ip+所读指令的字节数,也就是下一个地址
+执行指令缓存器中的内容然后跳转到第一步
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		jmp s
+		mov bx,1000H
+		;mov bx,1000H
+		;mov bl,0
+
+s:		mov ax,1000H	;eb04 eb07 eb09
+		;jmp跳转指令编译后的 机器码 和 指令的长度有关
+		;在用debug看了之后发现jmp下一条指令是nop的汇编指令.但编译后的机器码是和jmp的偏移地址相加等于jmp目标跳转的偏移地址(可以反着来看,nop的偏移地址和jmp的机器码)
+		;通过这么一种方式cpu在执行jmp指令的时候 并不需要跳转的 目的地址 就可以实现对ip寄存器的修改		
+		;只需要做一个加法运算就可以了
+		;标号地址(也就是start:) - jmp指令后第一个字节的地址(也就是jmp后第一个nop指令地址)
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+jmp指令原理可能的一个问题
