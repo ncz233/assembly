@@ -2642,7 +2642,8 @@ start:		mov bx,stack
 
 s:		mov ax,1000H	;eb04 eb07 eb09
 		;jmp跳转指令编译后的 机器码 和 指令的长度有关
-		;在用debug看了之后发现jmp下一条指令是nop的汇编指令.但编译后的机器码是和jmp的偏移地址相加等于jmp目标跳转的偏移地址(可以反着来看,nop的偏移地址和jmp的机器码)
+		;就是如eb07,eb08,eb09,它们后面的07 08 09都是从这个jmp指令到目标的字节长度
+		;在用debug看了之后发现jmp下一条指令是nop的汇编指令.但jmp编译后的机器码是和nop的偏移地址相加等于jmp目标跳转的偏移地址
 		;通过这么一种方式cpu在执行jmp指令的时候 并不需要跳转的 目的地址 就可以实现对ip寄存器的修改		
 		;只需要做一个加法运算就可以了
 		;标号地址(也就是start:) - jmp指令后第一个字节的地址(也就是jmp后第一个nop指令地址)
@@ -2655,3 +2656,119 @@ code ends
 end start
 
 jmp指令原理可能的一个问题
+如果jmp是往上跳呢?
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+s:		mov ax,1000H
+		jmp s
+;15+fb=10
+;标号地址 - jmp指令后的第一个字节的地址 = fb 15+fb(-5) = 10
+;为什么是fb可以看成是-5呢,因为计算机中没有减法 但是加上一个 负数不就可以了吗
+;而负数是怎么表现的呢, 将一个正数 变成二进制 后 按位取反(0变1 1变0) 加上1
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+jmp指令跳转范围
+只有一个字节 也叫位移范围
+一个字节有8个二进制位也叫8位位移 -128-127
+有8位位移也有16位位移 -32768-32767
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+s:		mov ax,1000H
+		db 130 dup(0)
+		jmp s
+		;这样的时候8位位移就会自动变成16位位移了
+		;但你可以指定,不过不推荐 short ptr 8位 near ptr 16位
+		;都是加在jmp的后面指标(s)的前面 和用内存访问特定的数据长度一样
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+实验8 分析一个奇怪的程序
+分析下卖弄的程序,在运行前思考,这个程序可以正确返回吗
+运行后在思考,为什么是这种结果
+通过这个程序加深对相关内容的理解
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+		mov ax,4c00H
+		int 21H
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax.0
+s:		nop
+		nop
+
+		mov di,offset s
+		mov si,offset s2
+		mov ax,cs:[si]
+		mov cs:[di],ax
+
+s0:		jmp short s
+s1:		mov ax,0
+		int 21H
+		mov ax,0
+s2:		jmp short s1
+		nop
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
