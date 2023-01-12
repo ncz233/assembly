@@ -2974,4 +2974,174 @@ code ends
 end start
 
 监测点9.1
-1.程序如下
+1.程序如下 若要使程序中jmp子陵执行后,cs:ip指向程序的第一条指令,在data段 应该如何定义数据
+assume cs:code, ds:data, ss:stack
+data segment
+		db 0
+		;dw 0	;ds:[1]用dw表示 阅读上的方便
+		dw offset start	;还可以这么写
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		jmp word ptr ds:[bx+1]	;ip=ds:[bx+1]=ds:[1]=offset start =0
+
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+2.程序如下 补全程序 使用jmp中兴后,cs ip 指向程序的第一条指令
+assume cs:code, ds:data, ss:stack
+data segment
+		dd 12345678H
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov word ptr ds:[bx+0],offset start;------
+		mov ds:[bx+2],cs;------
+
+		jmp dword ptr ds:[0]	;ip=ds:[0] cs=ds:[2]
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+3.用debug查看内存 结果如下
+2000:1000 be 00 06 00 00 00 ......
+则此时,cpu执行指令
+mov ax,2000H
+mov es,ax
+jmp dword ptr es:[1000H]
+cs = ? ip = ?	cs=0006H ip=00beH
+最重要,地址也是数据
+
+实验9 材料分析
+编程:在屏幕中间分别显示 绿色,绿底红字,白底蓝字 的字符串 'welcome to masm!'
+变成所需的知识通过阅读,分析下面的材料获得!!!
+80×25彩色字符模式显示缓冲区(一下简称为显示缓冲区)的结构:
+内存地址空间中,b800H~bfffH共32K的空间,为80×25彩色字符模式的显示缓冲区域.像这个地址空间写入数据
+写入的内容将立即出现在显示器上
+80×25彩色字符模式下,显示器可以显示25行,每行80个字符,每个可以有256种属性
+这样,一个字符在显示缓冲区种就要占用两个字节,分别存放字符和ascii码和属性
+80×25模式下,一切屏幕内容在显示缓冲区中 共占4000个字节
+显示缓冲区分为8页,每页4kb(约等于4000b),显示器可以显示任意一页的内容,一般情况下,显示第0页的内容
+0000 0000 字符属性占用一个字节
+7654 3210 对应上面字符的每个位的编号
+rgb   tgb
+背景  前景
+背景=dise
+前景=字体颜色
+7 闪烁	只有全屏dos下才能看到效果
+3 高亮
+r=red
+g=green
+b=blue
+如:	底色 字体颜色
+红底绿字:	0100 0010B
+红底高亮绿字0100 1010B
+黑底白字: 0000 0111B
+白底黑字: 0111 0000
+经过相似debug中实验
+发现ascii码在100H,102H,104H 位置存放
+存放字符颜色在101H,103H,105H 位置存放
+偶数地址都是存放字符的ascii码
+奇数地址都是存放字符的颜色 字符的属性
+屏幕上的位置:
+一共80个字符	每行160个字节
+一个屏幕有25行显示	一共4000字节
+如何去组织数据
+如何去处理数据
+可以这么理解,以字型为单元核心,低地址存放ascii码值 高地址存放字符的属性
+assume cs:code, ds:data, ss:stack
+data segment
+		db 'welcome to masm!'	;ds:[si]
+		db 00000010B	;0000 0000 ds:[bx]
+		db 00100100B	; rgp
+		db 01110001B
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov bx,0b800H
+		mov es,bx
+
+		mov si,0	;字符
+		mov di,160*10 + 30*2	;偶数地址存放ASCII
+		mov bx,16	;属性
+		mov dx,0	;保存移动的字符属性
+
+		mov cx,3
+showMasm:	push cx
+		push bx
+		push si
+		push di
+
+		mov cx,16
+		mov dh,ds:[bx]	;mov es:[di],dx es:[di+0],dl es:[di+1],dh
+
+showRow:		mov dl,ds:[si]
+		mov es:[di],dx
+		add di,2
+		inc si
+		loop showRow
+
+		pop di
+		pop si
+		pop bx
+		pop cx
+		add di 160
+		inc bx
+		loop showMasm
+
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+根据位移进行转移的指令的优势
