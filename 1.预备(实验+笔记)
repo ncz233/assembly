@@ -3145,3 +3145,118 @@ code ends
 end start
 
 根据位移进行转移的指令的优势
+根据位移 来修改ip寄存器 进行转移 指令的优势
+jmp标号
+jmp short 标号
+jmp near 标号
+jcxz 标号
+loop 标号
+位移 = 标号处的偏移地址 - 转移指令后的第一个字节的地址
+转移指令后的第一个字节的地址+标号处的偏移地址=位移
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+;为什么是指令后的第一个字节的地址呢,是因为指令的执行过程
+;根据位移, 位移就是 = 转移指令后的第一个字节的地址+标号处的偏移地址,这种方法使用与内存中任何位置
+;因为在执行这种带有 位移的转移指令时,只根据位移来计算
+		call cpy_tetris
+
+		mov bx,0
+		push bx
+		mov bx,07e00H
+		push bx
+
+		mov bx,sp
+		jmp dword ptr ss:[bx+0]
+
+		mov ax,4c00H
+		int 21H
+;==================================
+
+tetris:		jmp s
+		mov ax,1000H
+
+s:		add bx,0
+tetris_end:		nop
+;====================================
+
+cop_tetris:		mov bx,cs
+		mov ds,bx
+		mov si,offset tetris
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset tetris_end - offset tetris
+
+cpytetris:		mov al,ds:[si]
+		mov es:[di],al
+		inc si
+		inc di
+		loop cpytetris	
+
+		ret
+code ends
+
+end start
+还有以数据的形式存储,就是地址存到内存中 结构化存放,各有各的优势,以后要组织代码组织指令的方式
+地址以数据的形式存储就是以前写的这个
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,offset s1
+		mov ds:[0],ax
+		mov ax,offset s2
+		mov ds:[2],ax
+		mov ax,offset s3
+		mov ds:[4],ax
+	
+		jmp word ptr ds:[bx]	;ip=ds:[0]的字型数据
+
+over:		mov ax,4c00H
+		int 21H
+
+s1:		mov ax,1000H
+		jmp over
+s2:		mov ax,1001H
+		jmp over
+s3:		mov ax,1002H
+		jmp over
+
+code ends
+
+end start
+
+指令长度的计算方式的思考
