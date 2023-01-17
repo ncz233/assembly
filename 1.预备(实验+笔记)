@@ -3277,3 +3277,124 @@ end start
 把一个大的问题切割成一个一个小的问题 下一章call指令 切割问题 切割代码
 一个完备的程序要重新写好几次
 
+
+call和ret指令
+转移指令在应用方面主要是 位移的方式 还有 将转移的目的地址存放在内存中
+先讲:ret 和 retf
+这么修改 使用内存中的字型数据
+当执行ret指令时 相当于执行pop ip
+当执行retf指令时 相当于执行了 pop ip pop cs
+栈是一段内存 修改栈顶标记
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		call cpy_tetris
+
+		mov bx,0
+		push bx
+		mov bx,07e00H
+		push bx
+
+		retf ;pop ip	pop cs
+		ret ;pop ip
+
+		mov ax,4c00H
+		int 21H
+;==================================
+
+tetris:		jmp s
+		mov ax,1000H
+
+s:		add bx,0
+tetris_end:		nop
+;====================================
+
+cpy_tetris:		mov bx,cs
+		mov ds,bx
+		mov si,offset tetris
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset tetris_end - offset tetris
+
+cpytetris:		mov al,ds:[si]
+		mov es:[di],al
+		inc si
+		inc di
+		loop cpytetris	
+
+		ret
+code ends
+
+end start
+监测点10.1
+补全程序 实现内存 1000H:0000 处开始执行指令
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov ax,1000H ;----
+		push ax
+		mov ax,0000 ;----
+		push ax
+
+		retf
+		
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+call指令
+push ip
+jmp near ptr 标号
+记住指令的执行过程
+1.读取cs:ip地址 并存到 指令缓存器中
+2.ip = ip+所读指令的字节数	;ip指向下一条指令
+3.执行缓存器中内容,回到第一步
+call指令的转移方式 位移的方式
+16为位移
+call指令后第一个字节地址+call的字节的数(位移) = 标号处的偏移地址	-32768~32767
+在编译器编译的时候 编译器计算的
+监测点 10.2
+下面程序执行后,ax中的数值为多少
+内存地址	机器码	汇编指令
+1000:0	b8 00 00 	mov ax,0	ax=0
+1000:3	e8 01 00	call s	push ss:[sp]=6	jmp near ptr s
+1000:6	40	inc ax	
+1000:7	58	s: pop ax	pop ax=ss:[sp]
+
+转移的目的地址在指令中的call指令
