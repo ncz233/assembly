@@ -3510,3 +3510,240 @@ s:		inc ax	;ax=3
 code ends
 
 end start
+下面的程序执行后,ax和bx中的数据为多少
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		dw 8 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,16
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+		
+		mov word ptr ss:[0],offset s
+		mov ss:[2],cs
+
+		call dword ptr ss:[0]
+		nop	;push cs	push ip
+
+s:		mov ax,offset s
+		sub ax,ss:[0cH]	;ax=offset s - nop的ip
+		mov bx,cs
+		sub bx,ss:[0eH]	;bx=cs - nop的cs
+		
+		mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+call指令的应用(一) 函数调用
+call要和ret或者retf配合
+assume cs:code, ds:data, ss:stack
+data segment
+		db 128 dup (0)
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+		
+		mov ax,offset s1
+		mov ds:[0],ax
+		mov ax,offset s2
+		mov ds:[2],ax
+		mov ax,offset s3
+		mov ds:[4],ax
+
+		mov bx,0	;去修改bx来访问
+		call word ptr ds:[bx]	;push ip 代码的组织 逻辑性 顺序性 切割性
+		
+		mov ax,4c00H
+		int 21H
+
+s1:		mov ax,1000H
+		ret		;返回
+s2:		mov ax,1000H
+		ret
+s3:		mov ax,1000H
+		ret
+
+code ends
+
+end start
+以实验9为例,代码可分为初始化和显示,这样错哪里可以知道
+assume cs:code, ds:data, ss:stack
+data segment
+		db 'welcome to masm!'	;ds:[si]
+		db 00000010B	;0000 0000 ds:[bx]
+		db 00100100B	; rgp
+		db 01110001B
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		call init_reg
+		call show_masm
+
+		mov ax,4c00H
+		int 21H
+
+;================================================
+init_reg:		mov bx,0b800H
+		mov es,bx
+
+		mov si,0	;字符
+		mov di,160*10 + 30*2	;偶数地址存放ASCII
+		mov bx,16	;属性
+		mov dx,0	;保存移动的字符属性
+
+		mov cx,3
+		ret
+;========================================
+show_masm:	push cx
+		push bx
+		push si
+		push di
+
+		mov cx,16
+		mov dh,ds:[bx]	;mov es:[di],dx es:[di+0],dl es:[di+1],dh
+
+showRow:		mov dl,ds:[si]
+		mov es:[di],dx
+		add di,2
+		inc si
+		loop showRow
+
+		pop di
+		pop si
+		pop bx
+		pop cx
+		add di,160
+		inc bx
+		loop show_masm
+		ret
+
+code ends
+
+end start
+要模块化设计,合理利用call分割
+假如又加了几个需要变颜色的数据呢
+assume cs:code, ds:data, ss:stack
+data segment
+		db 'welcome to masm!'	;ds:[si]
+		db 00000010B	;0000 0000 ds:[bx]
+		db 00100100B	; rgp
+		db 01110001B
+		db 'xxxxxxxxxxxxxxxx'
+		db 'zzzzzzzzzzzzzzzz'
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		call init_reg		;参数就是数据从哪里来和数据到哪里去 call指令去处理
+
+		mov si,0	;字符				;数据从哪里来
+		mov di,160*10 + 30*2	;偶数地址存放ASCII	;数据到哪里去
+		mov bx,16	;属性
+		mov dx,0	;保存移动的字符属性
+		call show_masm
+
+		mov si,19	;字符
+		mov di,160*5 + 30*2	;偶数地址存放ASCII
+		mov bx,16	;属性
+		mov dx,0	;保存移动的字符属性
+		call show_masm
+
+		mov si,35	;字符
+		mov di,160*15 + 30*2	;偶数地址存放ASCII
+		mov bx,16	;属性
+		mov dx,0	;保存移动的字符属性
+		call show_masm
+
+		;call init_xxxxx
+		;call show_xxxxx	;这样也行,但只修改了数据参数,没动里面的核心,如果这样写,代码量是很大的,所以只要把参数改一下就可以了,提高代码的复用性
+		
+
+		mov ax,4c00H
+		int 21H
+
+;================================================
+init_reg:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+		mov bx,0
+
+		mov bx,0b800H
+		mov es,bx
+		
+		ret
+;========================================
+show_masm:	mov cx,3
+
+showMasm:	push cx
+		push bx
+		push si
+		push di
+
+		mov cx,16
+		mov dh,ds:[bx]	;mov es:[di],dx es:[di+0],dl es:[di+1],dh
+
+showRow:		mov dl,ds:[si]
+		mov es:[di],dx
+		add di,2
+		inc si
+		loop showRow
+
+		pop di
+		pop si
+		pop bx
+		pop cx
+		add di,160
+		inc bx
+		loop showMasm
+
+		ret
+
+code ends
+
+end start
+
+call指令的应用(三)
