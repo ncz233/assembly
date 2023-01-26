@@ -4253,3 +4253,71 @@ ax=商
 dx=余数+30H->屏幕上
 ax=0 也就是商=0 说明结束了 jcxz判断
 编写程序 编程思想
+编写程序就是用某种计算机语言表示出计算过程的序列
+代码将余数显示到屏幕上
+assume cs:code, ds:data, ss:stack
+data segment
+		db	1234
+data ends
+
+stack segment stack
+		db 128 dup (0)
+stack ends
+
+code segment
+
+start:		mov bx,stack
+		mov ss,bx
+		mov sp,128
+
+		call init_reg
+
+		mov ax,10
+		mov ds:[si+3],ax
+
+		mov ax,ds:[si]
+		call short_div
+
+
+		mov ax,4c00H
+		int 21H
+;================================================
+short_div:
+		push di
+		push cx
+		push dx
+		push ax
+s:
+		;mov cx,10
+		;div cx
+		div word ptr ds:[si+3]
+		add dl,30H
+		mov es:[di+0],dl
+		mov byte ptr se:[di+1],00000001B
+		mov cx,ax
+		jcxz shortDivRet
+		add di,2
+		mov dx,0
+		jmp s
+`		
+s1:
+		pop ax
+		pop dx
+		pop cx
+		pop di
+		ret
+;================================================
+init_reg:		mov bx,data
+		mov ds,bx
+
+		mov bx,0b800H
+		mov es,bx
+		mov si,0
+		mov di,150*10+2*30
+		
+		ret
+;========================================
+
+code ends
+
+end start
