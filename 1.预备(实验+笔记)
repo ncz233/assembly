@@ -4394,6 +4394,8 @@ output_table:
 outputTable:
 		call show_year
 		call show_summ
+		call show_ne
+		call show_average
 		add si,16
 		add di,160
 		loop outputTable
@@ -4467,6 +4469,58 @@ short_div:
 
 shorDivRet:	ret
 ;================================================
+show_ne:
+		push ax
+		push bx
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+
+		mov ax,ds:[si+10]
+		mov dx,0
+
+		add di,30*2
+		call short_div
+
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+		ret
+;================================================
+show_average:
+		push ax
+		push bx
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+
+		mov ax,ds:[13]
+		mov bx,0
+
+		add di,40*2
+		call short_div
+
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+		ret
+;================================================
 input_table:
 		mov bx,data
 		mov ds,bx
@@ -4509,5 +4563,27 @@ end start
 
 上面的代码显示总收入(简化版) √
 
-显示员工个显示平均收入(简化版) ×
+显示员工个显示平均收入(简化版) √
+
+老师的编程思想
+什么是编写程序也就是编程
+用某种计算机语言表示出 计算过程的序列
+什么是计算过程
+输入 计算 输出	如:1+2+3	1 2 3是输入,+是计算 =6结果,计算过程
+add ax,bx
+add bx,ax
+ax和bx是输入 add是计算 ax是输出 又可以作为输入 计算过程
+计算指令同理
+mov ax,1234	输入 被除数
+mov dx,0		输入 被除数
+mov cx,10		输入 除数
+div cx		计算
+ax商 dx余数 输出
+然后用call指令写成一个函数方便调用
+参数可以看成输入 call程序可以看成是一个计算 返回值就是输出
+call中合起来就是计算过程的序列
+整个程序就是一个一个call程序(计算的符号+-)组合成 计算过程的序列
+和我差不多吗(诶嘿)
+
+然后用编程思想重写课程设计1(简化版)体会一下
 
