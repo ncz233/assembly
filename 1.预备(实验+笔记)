@@ -4839,3 +4839,167 @@ end start
 可以理解计算一个call,最好是不要修改,反应性高就行 计算过程/计算过程的序列
 输出是从计算call传到输入的call中
 
+开始写完整的课程设计一了
+要编写3个子程序,用于完成独立的实验
+1.显示字符串(在屏幕的某个位置显示字符串)
+2.解决除法溢出的问题
+3.树脂显示问题(数据变成字符串然后显示)
+相互配合使用的 数据-字符串-显示到屏幕上
+数据 直接显示到屏幕上
+相互配合使用
+少考虑很多细节
+代码1.显示字符串(在屏幕的某个位置显示字符串)
+名称:show_str
+功能:	在指定的位置,用指定的颜色,显示一个用0结束的字符串
+参数:	(dh)=行号(取值范围0~24),(dl)=列号(取值范围0~79)
+	(cl)=颜色,ds:si 指向字符串首地址
+返回:	无
+应用举例:	在屏幕的8行3列,用绿色显示data段中的字符串
+assume cs:code,ds:data,ss:stack
+
+data segment
+		db	'Welcome to masm! ',0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,0
+		mov cx,0
+		 
+		call init_reg
+		call show_str
+
+		mov ax,4C00H
+		int 21H
+;=========================================
+show_str:
+		push cx
+		push es
+		push ds
+		push si
+		push di
+
+show_String:	mov cl,ds:[si+0]
+		mov es:[di+0],cl
+		mov byte ptr es:[di+1],00000010B
+
+		jcxz return_str
+		inc si
+		add di,2
+		loop show_String
+		
+return_str:	
+		pop di
+		pop si
+		pop ds
+		pop es
+		pop cx
+		ret
+;=========================================
+init_reg:
+		mov ax,data
+		mov ds,ax
+		mov si,0
+
+		mov ax,0b800H
+		mov es,ax
+		mov di,160*8+2*3
+
+		ret
+
+code ends
+
+end start
+
+代码3.树脂显示问题(数据变成字符串然后显示)(第二个先跳过)
+如1234输入-计算-输出'1234'
+'1234'输入-show_string-输出到屏幕上
+编程将data段中的数据以十进制的形式显示出来
+data segment
+	dw 12666,12331,8,3,38,100,0
+data ends
+程序功能
+名称:	dtoc
+功能:	将word型数据转变为表示十进制的字符串,字符串以0结尾符
+参数:	(ax)=word型数据
+	ds:si指向字符串的首地址
+返回:	无
+就是用除法,得到商(也即是%运算)+30H,放到字符串中,然后等放完到字符串中在判断ax中是否等于0,等于0终止循环
+举例(提示有点像栈)
+assume cs:code,ds:data,ss:stack
+
+;data segment
+	db	128 dup (0)
+;data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		mov bx,0
+		mov cx,0
+
+		call dtoc
+
+		mov dh,8
+		mov dl,3
+		mov cl,2
+		call show_str
+
+		mov ax,4C00H
+		int 21H
+;=========================================
+show_str:
+		push cx
+		push es
+		push ds
+		push si
+		push di
+
+show_String:	mov cl,ds:[si+0]
+		mov es:[di+0],cl
+		mov byte ptr es:[di+1],00000010B
+
+		jcxz return_str
+		inc si
+		add di,2
+		loop show_String
+		
+return_str:	
+		pop di
+		pop si
+		pop ds
+		pop es
+		pop cx
+		ret
+;=========================================
+init_reg:
+		mov ax,12666
+		mov bx,data
+		mov ds,bx
+		mov si,0
+
+		mov ax,0b800H
+		mov es,ax
+		mov di,160*8+2*3
+
+		ret
+
+code ends
+
+end start
