@@ -4936,13 +4936,18 @@ data ends
 举例(提示有点像栈)
 assume cs:code,ds:data,ss:stack
 
-;data segment
-	db	128 dup (0)
-;data ends
+data segment
+	dw	1234
+data ends
 
 stack segment stack
 	db	128 dup (0)
 stack ends
+
+string segment
+	db	'0000000000',0
+;在倒数四行写入数据	            1234 可以用栈的思想
+string ends
 
 code segment
 
@@ -4951,55 +4956,91 @@ code segment
 		mov sp,128
 
 		call init_reg
-		mov bx,0
-		mov cx,0
 
-		call dtoc
+		mov ax,ds:[si]
+		mov dx,0
 
-		mov dh,8
-		mov dl,3
-		mov cl,2
-		call show_str
+		call short_div
+
+		mov bx,string
+		mov ds,bx
+		mov si,di
+
+		mov bx,0b800H
+		mov es,bx
+		mov di,160*15+2*30
+
+		call show_string
 
 		mov ax,4C00H
 		int 21H
 ;=========================================
-show_str:
+show_string:
 		push cx
+		push dx
 		push es
-		push ds
 		push si
 		push di
 
-show_String:	mov cl,ds:[si+0]
+		mov cx,0
+
+showString:	mov cl,ds:[si+0]
+		jcxz showStringRet
 		mov es:[di+0],cl
 		mov byte ptr es:[di+1],00000010B
-
-		jcxz return_str
-		inc si
 		add di,2
-		loop show_String
+		inc si
+		loop showString
 		
-return_str:	
+showStringRet:
 		pop di
 		pop si
-		pop ds
 		pop es
+		pop dx
 		pop cx
+
 		ret
 ;=========================================
+short_div:
+		mov cx,10
+		div cx
+		add dl,30H
+		sub di,1
+		mov es:[di],dl
+
+		mov cx,ax
+		jcxz shortDivRet
+		mov dx,0
+		jmp short_div
+
+shortDivRet:	ret
+;=========================================
 init_reg:
-		mov ax,12666
 		mov bx,data
 		mov ds,bx
 		mov si,0
 
-		mov ax,0b800H
-		mov es,ax
-		mov di,160*8+2*3
+		mov bx,string
+		mov es,bx
+		mov di,10
 
 		ret
 
 code ends
 
 end start
+
+数据变成字符串显示√
+
+思考一个问题
+数据 - 字符串 - 显示到屏幕上
+思考的基础,就是编程思想
+编程就是用某种计算机语言表示出计算过程的序列
+完成计算过程需要需要:输入-计算-输出 输出又可以作为输入
+其实控制好输入和输出就行了
+call short_div
+之决定了 如何对输入进行计算,输出一个结果
+就像+号,就是决定计算格式,就是将两个输入进行相加输出
+
+数据-字符串-显示-课程设计一
+
