@@ -5369,4 +5369,332 @@ end start
 3.树脂显示问题(数据变成字符串然后显示)	计算过程的序列
 王爽老师给我们的思考就是,把大的问题拆分成一个一个小问题(计算过程的序列)
 
+实验10.1
+名称:	show_str
+功能:	在指定的位置,用指定的颜色,显示一个用0结束的字符串
+参数:	dh = 行号(取值范围0~24),dl = 列号(取值范围0~79)
+	cl = 颜色
+	ds:si 指定字符串的首地址
+返回:	无
+举例:	在屏幕的8行3列,用绿色显示data段中的字符串
+assume cs:code,ds:data,ss:stack
 
+data segment
+	db	'hello world',0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+
+		mov dh,8
+		call get_row
+		add di,ax
+
+		mov dl,3
+		call get_col
+		add di,ax
+
+		mov cl,00000001B
+		mov dl,cl
+
+		mov si,0
+		call show_string
+
+		mov ax,4C00H
+		int 21H
+;=====================================
+show_string:
+		mov cx,0
+
+showString:	mov cl,ds:[si+0]
+		jcxz showStringRet
+		mov es:[di+0],cl
+		mov es:[di+1],dl
+		add di,2
+		inc si
+		jmp showString
+
+showStringRet:
+		ret
+;=====================================
+get_col:
+		mov al,2
+		mul dl
+		ret
+;=====================================
+get_row:
+		mov al,160
+		mul dh
+		ret
+;=====================================
+init_reg:
+		mov ax,data
+		mov ds,ax
+		mov si,0
+
+		mov ax,0b800H
+		mov es,ax
+		mov di,0
+		ret
+code ends
+
+end start
+
+实验10.2
+名称:	show_div
+功能:	将word型数据转变为表示十进制的字符串,字符串以0结尾
+参数:	ax = word型数据
+	ds:si 指定字符串的首地址
+返回:	无
+也就是余数+30H
+assume cs:code,ds:data,ss:stack
+
+data segment
+	dw	1230,12666,1,8,3,38,0
+data ends
+
+string segment
+	db	10 dup('0'),0
+string ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call clear_screen
+		call init_reg
+
+		call show_number
+
+		mov ax,4C00H
+		int 21H
+;=====================================
+show_string:
+		push cx
+		push ds
+		push es
+		push si
+		push di
+
+		mov cx,0
+showString:	
+		mov cl,ds:[si]
+		jcxz showStringRet
+		mov es:[di+0],cl
+		mov byte ptr es:[di+1],00000001B
+		add di,2
+		inc si
+		jmp showString
+
+showStringRet:
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop cx
+		ret
+;=====================================
+show_number:
+		mov bx,0
+		mov si,9
+		mov di,160*10+2*30
+		mov cx,6
+inputString:
+		call show_word
+		;mov ax,ds:[si]	;别这样写,会乱应该写成call函数,我把自己写乱了
+		;mov cx,ax
+
+		;call show_div
+		;jcxz inputStringRet
+		;add si,2
+		;add di,5
+
+		add di,160
+		add bx,2
+
+		loop inputString
+
+		ret
+;=====================================
+show_word:
+		push ax
+		push bx
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+
+		mov ax,ds:[bx]
+		mov dx,0
+
+		call show_div
+
+		call init_reg_show_string
+
+		call show_string
+
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+
+		ret
+;=====================================
+init_reg_show_string:
+		mov bx,string
+		mov ds,bx
+		
+		mov bx,0b800H
+		mov es,bx
+
+		ret
+;=====================================
+show_div:
+		mov cx,10
+		div cx
+
+		mov cx,ax		
+		add dl,30H
+		mov es:[si],dl
+		jcxz showDivRet
+		dec si
+		mov dx,0
+		jmp show_div
+
+showDivRet:
+		ret
+;=====================================
+init_reg:
+		mov ax,data
+		mov ds,ax
+
+		mov bx,string
+		mov es,bx
+
+		ret
+;=====================================
+clear_screen:
+		mov bx,0b800H
+		mov es,bx
+
+		mov bx,0
+		mov dx,0700H
+		mov cx,2000
+clearScreen:
+		mov es:[bx],dx
+		add bx,2
+		loop clearScreen
+		ret
+
+code ends
+
+end start
+
+实验10.3分析(一) 编程,解决除法溢出问题
+名称:	log_div
+功能:	进行不会溢出的除法运算,被除数为dworld型,除数为world型
+	结果为dworld型
+参数:	ax=dword型数据的低16位
+	dx=dword型数据的高16位
+	cx=除数
+返回:	dx=结果的高16位,ax=结果的低16位
+	cx=余数
+应用举例:	计算1000000/10(f4240H/0aH)=186a0H
+mov ax,4240H
+mov dx,000fH
+mov cx,10
+call long_div
+提示公式:
+X:被除数,范围:[0,ffff ffffH]
+N:除数,范围:[0,ffffH]
+H:x的高16位
+L:x的低16位
+int():	描述性运算符, 取商	比如int(38/10)=3	;call int	38 10 输入 / 程序做除法 输出 商 3
+rem():	描述性运算符, 取余数	比如irem(38/10)=8	;call rem	38 10 输入 / 程序做除法 输出 余数 8
+公式:  x/n = int(H/N)*65536+[rem(H/N)*65536+L]/N
+公式: x/n = int(H/N)*10+[rem(H/N)*10+L]/N
+可以理解,把被除数拆分成 [X商*权重+X商的余数*权重+最后的L余数(也就是没有权重的余数)]/除数
+assume cs:code,ds:data,ss:stack
+
+data segment
+	dd	1000000
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+
+		mov bx,0
+		mov ax,ds:[bx+0]	;被除数 低16位 L
+		mov dx,ds:[bx+2]	;被除数 高16位 H
+		mov cx,10		;余数N
+
+		push ax		;暂时存放低16位,因为除法先除高位
+		mov bp,sp ;ss[bp]	;保存这个位置的地址
+
+		call long_div
+		;公式: x/n = int(H/N)*10+[rem(H/N)*10+L]/N
+
+		mov ax,4C00H
+		int 21H
+;=====================================
+long_div:
+		mov ax,dx	;先算高位
+		mov dx,0	;准备余数
+		div cx	;ax=int(H/N)->dx	dx=rem(H/N)*65536 商ax中,余数dx中,当然余数时还要继续除的
+
+		push ax
+
+		mov ax,ss:[bp+0]	;L 剩下的低地址和高位地址的余数一起做被除数,余数在dx中是高位,低地址在ax中
+
+		div cx		;ax = [rem(H/N)*10+L]/n的商 dx=余数 得到低地址的商和余数了
+
+		mov cx,dx		;因为题目要求在cx中显示余数,ax低16位商dx高16位商
+		pop dx		;因为ax得到低地址的商,我们之前存好的高地址的商pop在dx中,因为题目要求
+		;dx=1 ax=86a0H
+
+		pop bx	;虽然这个不需要pop但是为了保存栈的初始化这个是必要的
+		mov bx,0
+
+		ret
+;=====================================
+init_reg:
+		mov bx,data
+		mov ds,bx
+
+		ret
+
+code ends
+
+end start
+
+课程设计一介绍
