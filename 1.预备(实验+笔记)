@@ -5706,7 +5706,210 @@ end start
 想怎么组织代码就怎么组织代码
 建立属于自己的编程的思维 先自己写一个,在差也没关系
 
-课程设计一开始了
-显示年份
-显示收入
-显示其他
+课程设计一开始了(别一开始存放到string中,因为div的时候一行string不够,还是直接显示到屏幕上)
+显示年份√
+显示收入√
+显示其他√	无小数点余数
+call 对逻辑进行切割	输入 程序处理 输出
+assume cs:code,ds:data,ss:stack
+
+data segment
+
+		db	'1975','1976','1977','1978','1979','1980','1981','1982','1983'
+		db	'1984','1985','1986','1987','1988','1989','1990','1991','1992'
+		db	'1993','1994','1995'
+		;以上是表示21年的21个字符串 year	不断的+4个字节
+
+		dd	16,22,382,1356,2390,8000,16000,24486,50065,97479,140417,197514
+		dd	345980,590827,803530,1183000,1843000,2759000,3753000,4649000,5937000
+		;以上是表示21年公司总收入的21个dword数据	sum 不断+4个字节
+
+		dw	3,7,9,13,28,38,130,220,476,778,1001,1442,2258,2793,4037,5635,8226
+		dw	11542,14430,15257,17800
+
+data ends
+
+table segment
+		db	21 dup ('year summ ne ?? ')	;偏移思想可以看到想看的数据
+table ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,0
+		 
+		call cler_screen
+		call init_reg
+		call my_printf
+
+		mov ax,4C00H
+		int 21H
+;================================================
+my_printf:
+		mov si,0
+		mov di,160*3+2*5
+		mov bx,21*4*2
+		mov cx,21
+myPrint:
+		push di
+		call show_year
+		call show_summ
+		call show_ne
+		call show_average
+
+		pop di
+		add si,4
+		add di,160
+		add bx,2
+		loop myPrint
+
+		ret
+;================================================
+show_average:
+		mov ax,ds:[si+21*4+0]
+		mov dx,ds:[si+21*4+2]
+		mov cx,ds:[bx+0]
+		add di,2*15
+
+		push ax
+		mov bp,sp
+
+		call show_ddiv
+
+		call show_div
+
+		pop ax
+
+		ret
+;================================================
+show_ddiv:
+		push cx
+
+		mov ax,dx
+		mov dx,0
+		div cx
+
+		push ax
+
+		mov ax,ss:[bp]
+		div cx
+
+		;mov cx,dx	;不要余数
+		pop dx
+		
+		pop cx		
+		ret
+;================================================
+show_ne:
+		mov ax,ds:[bx+0]
+		mov dx,0
+		mov cx,0
+		add di,2*15
+		call show_div
+
+		ret
+;================================================
+show_summ:
+		mov ax,ds:[si+21*4+0]
+		mov dx,ds:[si+21*4+2]
+		mov cx,0
+		add di,2*15
+		call show_div
+
+		ret
+;================================================
+show_div:
+		push ax
+		push cx
+		push dx
+		push di
+		push ax
+
+showDiv:
+		mov cx,10
+		div cx
+
+		add dl,30H
+		mov es:[di+0],dl
+
+		mov cx,ax
+		jcxz showDivRet
+		mov dx,0
+		sub di,2
+		jmp showDiv
+showDivRet:
+		pop ax
+		pop di
+		pop dx
+		pop cx
+		pop ax
+
+		ret
+;================================================
+show_year:
+		push si
+		push di
+		push cx
+
+		mov cx,2
+showYear:
+		mov al,ds:[si]
+		mov ah,ds:[si]
+		mov es:[di],al
+		mov es:[di],ah
+
+		inc si
+		add di,2
+		
+		loop showYear
+
+		pop cx
+		pop di
+		pop si
+		ret
+;================================================
+init_reg:
+		mov ax,data
+		mov ds,ax
+		mov ax,0b800H
+		mov es,ax
+		ret
+;================================================
+cler_screen:
+		mov bx,0b800H
+		mov es,bx
+
+		mov bx,0
+		mov dx,0700H
+		mov cx,2000
+clearScreen:
+		mov es:[bx],dx
+		add bx,2
+		loop clearScreen
+		ret
+
+code ends
+
+end start
+以上自己写的,一开始以为是先要保存在内存中,结果也可以直接打印在屏幕上
+老师的是先存到内存中然后在显示在屏幕上,借鉴和对比老师写的,别硬抄
+最好保存在内存中,然后在显示在屏幕上,因为以后要看还在代码内存中找吗?
+有个缺点,就是显示以十进制显示钱的时候,有的是长除法,就是溢出,最好重新做一下最好分短除法和长除法
+代码少不一定代码好,根据具体的情况写什么代码
+
+解释之前用过的术语
+术语	名词
+声明	在内存中data中加入的数据
+初始化	第一次进行设置
+传入	参数写在外面的要传到里面
+call程序	函数(有返回值) 过程(无返回值) 方法(函数 过程)
+
+
+课程设计一给我们的启发(重要!)
