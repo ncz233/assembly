@@ -6280,14 +6280,24 @@ mul al	0	1	0	自己乘自己放在结果ax中不是负数,因为结果是16位�
 结论 mul不影响,但是要看环境,在xp会影响,在win10不会
 
 监测点11.2
-写出下面每条指令执行后 zf pf sf of zf成对标志位的值(就是of溢出有问题,没改中)
+写出下面每条指令执行后 zf pf sf of zf成对标志位的值(就是of溢出有问题,因为需要计算,看是否溢出,是看计算中,而不是结果,可以理解:计算前先换算成10进制,然后计算,看是否溢出)
+of是在运算过程决定的 2个操作数都当作有符号 决定是否溢出 位数要一样al和al ax和ax
+sf标志位以结果决定的
+cf无符号数计算看是否进位,
+sf看结果最高位是否为1或0
+zf看结果是否等于0
+pf看结果1的个数
 		cf	of	sf	zf	pf
 sub al,al		0	0	0	1	1
 mov al,10H	
-add al,90H	0	1	1	0	1
+add al,90H	0	1(0)	1	0	1
 mov al,80H	
 add al,80H	1	1	0	1	1
 mov al,0fcH	
-add al,05H	1	1	0	0	0
+add al,05H	1	1(0)	0	0	0
 mov al,7dH	
 add al,0BH	0	1	1 	0	1
+
+adc指令(add carry)
+add	ax,bx	ax=ax+bx
+adc	ax,bx	ax=ax+bx+carry
