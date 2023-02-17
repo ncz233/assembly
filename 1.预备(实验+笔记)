@@ -6301,3 +6301,71 @@ add al,0BH	0	1	1 	0	1
 adc指令(add carry)
 add	ax,bx	ax=ax+bx
 adc	ax,bx	ax=ax+bx+carry
+写程序看
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db 128 dup(0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov ax,0ffffH	;低16位
+		mov dx,1000H	;高16位,数是1000ffff
+		
+		add ax,0ffffH	;会产生进位1001fffe,已知dx=1000 ax=fffe,因为不会进位
+		adc dx,0		;dx和0相加,然后在加上前面的进位值,最后=1001fffe
+		;32位加法
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+128位加法
+assume cs:code,ds:data,ss:stack
+
+data segment
+	dw 2222H,3333H,4444H,5555H,6666H,7777H,8888H,9999H
+	dw 0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,
+	dw 0 dup(0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call add_128
+
+		mov ax,4C00H
+		int 21H
+
+;===================================================
+add_128:
+		mov bx,data
+		mov ds,bx
+		mov es,bx
+		mov bx,4*8*2
+		mov di,bx
+
+		ret
+
+code ends
+
+end start
+
