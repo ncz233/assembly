@@ -6301,6 +6301,29 @@ add al,0BH	0	1	1 	0	1
 adc指令(add carry)
 add	ax,bx	ax=ax+bx
 adc	ax,bx	ax=ax+bx+carry
+
+sbb指令	sub carry
+sub	ax,bx	ax=ax-bx
+sbb	ax,bx	ax=ax-bx-carry
+
+cmp指令
+cmp	ax,bx	修改标志位(也就是比较),怎么比较呢,相减ax -= bx 在计算过程中修改标志位
+如
+ax = bx	zf=1	相等
+ax != bx	zf=0	不相等
+ax < bx	cf=1	carry flag(小于)
+ax >= bx	cf=0	大于等于	zf=1
+ax > bx	cf=0	并且zf=0
+ax <=bx	cf=1	或者zf=1	小于等于
+作用
+ax,bx	跳转到某个执行	范围 -128~127 位移,不能超过这个范围
+je 标号	jmp	equal	等于
+jne标号	jmp	not equal	不等于
+jb标号	jmp	below	小于 a<b
+jnb标号	jmp	not below	大于等于 a>=0
+ja标号	jmp	abover	大于 a>b
+jna标号	jmp	not abover 小于等于 a<=b
+
 写程序看
 assume cs:code,ds:data,ss:stack
 
@@ -6335,9 +6358,9 @@ end start
 assume cs:code,ds:data,ss:stack
 
 data segment
-	dw 2222H,3333H,4444H,5555H,6666H,7777H,8888H,9999H
-	dw 0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,
-	dw 0 dup(0)
+	dw 2222H,3333H,4444H,5555H,6666H,7777H,8888H,99H
+	dw 0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0ffffH,0H
+	dw 8 dup(0)
 data ends
 
 stack segment stack
@@ -6350,22 +6373,223 @@ code segment
 		mov ss,ax
 		mov sp,128
 
-		call add_128
+		call add_number
 
 		mov ax,4C00H
 		int 21H
 
 ;===================================================
-add_128:
+init_reg:
 		mov bx,data
 		mov ds,bx
 		mov es,bx
-		mov bx,4*8*2
-		mov di,bx
+		mov si,0
+		mov bx,2*8
+		mov di,2*8*2
+
+		ret
+;===================================================
+add_number:
+		call init_reg
+		mov si,0
+		mov bx,16
+		mov di,32
+
+		call add_128
+
+		ret
+;===================================================
+add_128:
+		push ax
+		push bx
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+
+		sub ax,ax	;初始化 cf=0
+		mov cx,8
+add128:
+		mov ax,ds:[si]
+		adc ax,ds:[bx]
+		mov es:[di],ax
+		inc si	;运算指令add不能用,万一si是ffff+2,那样会影响计算,用inc
+		inc si
+		inc bx
+		inc bx
+		inc di
+		inc di
+		loop add128
+		
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+		ret
+
+code ends
+
+end start
+
+sbb
+
+实验11
+编写一个子程序 将加列字符串中的小写字母变成大写字母
+db	"Beginer's AII - purpose Symbolic Instruction Code.",0]
+大写比小写小20H,但是add比and慢
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	"Beginer's AII - purpose Symbolic Instruction Code.",0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call init_data
+		call show_string
+		call up_letter
+		mov di,160*11+2*20
+		call show_string
+
+		mov ax,4C00H
+		int 21H
+;===================================================
+up_letter:
+		push dx
+		push ds
+		push es
+		push si
+		mov si,0
+upLetter:
+		mov dl,ds:[si]
+		cmp dl,0
+		je upLetterRet
+		cmp dl,'a'
+		jb nextLetter
+		cmp dl,'z'
+		ja nextLetter
+		and byte ptr ds:[si],11011111B	;and 或者 or 比add快
+nextLetter:
+		inc si
+		jmp upLetter
+upLetterRet:
+		pop si
+		pop es
+		pop ds
+		pop dx
+
+		ret
+;===================================================
+init_data:
+		mov si,0
+		mov di,160*10+2*20
+		mov ax,61H+25
+		mov bx,7AH
+
+		ret
+;===================================================
+show_string:
+		push dx
+		push ds
+		push es
+		push si
+		push di
+showString:
+		mov dl,ds:[si]
+		cmp dl,0
+		je showStringRet
+		mov es:[di],dl
+		add di,2
+		inc si
+		jmp showString
+showStringRet:
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		ret
+;===================================================
+init_reg:
+		mov bx,data
+		mov ds,bx
+
+		mov bx,0b800H
+		mov es,bx
 
 		ret
 
 code ends
 
 end start
+编程 统计data段中数值为8的字节个数,用ax保存统计结果
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	8,11,8,1,8,5,63,38
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call show_ax
+
+		mov ax,4C00H
+		int 21H
+;===================================
+show_ax:
+		mov cx,8
+		mov si,0
+		mov di,160*10+2*20
+showAX:
+		mov ax,ds:[si]
+		cmp ax,8
+		jne showAxRet
+		mov bx,ax
+		mov es:[di],ax
+		add di,2
+showAxRet:
+		inc si
+		loop showAX
+
+		ret
+;===================================
+init_reg:
+		mov ax,data
+		mov ds,ax
+		mov ax,0b800H
+		mov es,ax
+		mov ax,0
+
+		ret
+
+code ends
+
+end start
+
+编程 统计data段中数值大于8的字节个数,用ax保存统计结果
+大于,直接je变jna,因为是判断,常识是ja因为是我们站在上帝视角看.所以要对于目标来看,所以是小于等于
 
