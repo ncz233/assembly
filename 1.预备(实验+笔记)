@@ -6231,8 +6231,9 @@ mov al,ff
 add al,ff
 因al相对ah是独立的,所以这个会溢出,而溢出的内容也就是进位存在标志位中(先这么理解后面会将溢出和进位)
 标志位是什么是做什么的,是做进位用的
+psw的位数就是这个如:0000 1100 0000 0101(是溢出,向下,偶数,溢出)这个可以不看,可以在这章最后的时候看
 15  14  13  12  11  10  9  8  7  6  5  4  3  2  1  0
-                  of  df  if   tf sf  zf zf    af    pf     cf
+                       of  df  if  tf sf zf    af     pf     cf
 
 of这一行是表示什么的,是表示运算的信息状态的(运算,包括add sub mul div and(&&) ro(||)),但是有些是不影响的,自己做实验去
 是cf标志位寄存器(f=flag 旗帜)(c=carry)  旗帜是表达一种信息的意思
@@ -6258,14 +6259,23 @@ of标志位和cf标志位of(overflow 溢出)
 范围在-128~127,如果计算的时候超过了这个范围都会显示溢出-128-1也是如此
 cf标志位 他是把结果 都是当作 无符号运算,不管正还是负
 比如在of看来是-128~127 但是在cf看来是0~255
-  
+
+df标志位
+rep movsb	一般用于屏幕的复制
+rep movsw	串传送指令 
+
 标志位	真(值为1)	假(值为0)
 of	ov	nv	ov=overflow(溢出)	nv=not overflow(非溢出)
 sf	ng	pl	ng=negative(负数)	pl=positive(正数)
 zf	zr	nz	zr=zero(零)	nz-not zero(非零)
 pf	pe	po	pe=even(偶数)	po=odd(奇数)
 cf	cy	nc	cy=carry yes(进位)	ny=not carry(非进位)
-df	dn	up
+df	dn	up	dn=down(向下)	up=向上
+
+pushf和popf有关标志位寄存器的指令
+pushf(f=flag)->栈
+popf
+是存放或者记录现阶段的寄存器各项的状态
 
 监测点11.1
 写出下面每条指令执行后 zf pf sf标志位的值
@@ -6309,6 +6319,7 @@ sbb	ax,bx	ax=ax-bx-carry
 cmp指令
 cmp	ax,bx	修改标志位(也就是比较),怎么比较呢,相减ax -= bx 在计算过程中修改标志位
 如
+cmp ax,bx	修改标志位 无符号 看of寄存器
 ax = bx	zf=1	相等
 ax != bx	zf=0	不相等
 ax < bx	cf=1	carry flag(小于)
@@ -6316,7 +6327,7 @@ ax >= bx	cf=0	大于等于	zf=1
 ax > bx	cf=0	并且zf=0
 ax <=bx	cf=1	或者zf=1	小于等于
 作用
-ax,bx	跳转到某个执行	范围 -128~127 位移,不能超过这个范围
+ax,bx	跳转到某个执行	范围 -128~127 位移,不能超过这个范围 标志位 无符号
 je 标号	jmp	equal	等于
 jne标号	jmp	not equal	不等于
 jb标号	jmp	below	小于 a<b
@@ -6442,8 +6453,8 @@ sbb
 实验11
 编写一个子程序 将加列字符串中的小写字母变成大写字母
 db	"Beginer's AII - purpose Symbolic Instruction Code.",0]
-大写比小写小20H,但是add比and慢
-assume cs:code,ds:data,ss:stack
+大写比小写小20H,但是add比and慢,因小写字母比大写字母的区别是在0010 0000,这一位,and 1101 1111就行了
+ assume cs:code,ds:data,ss:stack
 
 data segment
 	db	"Beginer's AII - purpose Symbolic Instruction Code.",0
@@ -6541,7 +6552,7 @@ end start
 assume cs:code,ds:data,ss:stack
 
 data segment
-	db	8,11,8,1,8,5,63,38
+	db	'8,11,8,1,8,5,63,38'
 data ends
 
 stack segment stack
@@ -6563,12 +6574,11 @@ code segment
 show_ax:
 		mov cx,8
 		mov si,0
-		mov di,160*10+2*20
+		mov di,160*10+2*30
 showAX:
-		mov ax,ds:[si]
-		cmp ax,8
+		cmp byte ptr ds:[si],'8'
 		jne showAxRet
-		mov bx,ax
+		mov ax,ds:[si]
 		mov es:[di],ax
 		add di,2
 showAxRet:
@@ -6592,4 +6602,210 @@ end start
 
 编程 统计data段中数值大于8的字节个数,用ax保存统计结果
 大于,直接je变jna,因为是判断,常识是ja因为是我们站在上帝视角看.所以要对于目标来看,所以是小于等于
+为什么屏幕上打印不出来8,因为是字节,不是字符,要加''才行,同理这一块也是
+
+cmp指令有符号数,之前做的都是无符号cmp指令
+cmp ax,bx 和 sub ax,bx
+都是ax-bx,但是一个影响标志位,一个保存结果,也影响了标志位
+cmp ax,bx
+mov al,1
+mov bl,2
+cmp al,bl	推理出来al<bl
+sub al,bl	影响标志位	1-2=-1=ff	sf
+mov al,22H	34
+mov bl,0A0H	-96
+sub al,bl	of标志位 和 sf标志位
+mov al,8AH
+mov bl,70H
+cmp al,bl	-118-112=-238 of=1 sf=0	过程溢出了,结果是正数,也就是-118 > 112,所以溢出导致程序对标志位判定出错
+结论 假设
+cmp al,bl	sf=1 of=0	al<bl
+如果	sf=1 of=1 al>bl
+如果	sf=0 of=1 al<bl
+如果	sf=0 of=0 al>bl
+如果因为溢出导致了实际结果为负 数那么逻辑上真正的结果必然为正
+如果因为溢出导致了实际结果为正 数那么逻辑上真正的结果必然为负
+
+df标志位
+rep movsb
+rep movsw	串处理指令
+先看一段代码	好处就是使用更少的循环
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'8,11,8,1,8,5,63,38'
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call Boot
+		call cpy_Boot
+
+		mov ax,4C00H
+		int 21H
+;===================================
+Boot:
+		mov ax,1000H
+		mov ax,1000H
+		mov ax,1000H
+		mov ax,1000H
+
+Boot_end:
+		ret
+;===================================
+cpy_Boot:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset Boot	;数据从 ds:[si]
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H	;到es:[di]
+
+		mov cx,offset Boot_end - Boot
+		cld		;df=0
+		rep movsb	;经常使用在复制屏幕上的东西	rep 重复 movs复制	b字节	w字型
+				;向上是inc si	inc di	add si,2	add di,2,当然cx要缩短一半(对于这个程序来说)
+				;向下是dec si	dec di
+		ret
+
+code ends
+
+end start
+再看一个程序,复制屏幕上的东西
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg	;ds:[si]->es[di]
+		call cpy_screen
+
+		mov ax,4C00H
+		int 21H
+;===================================
+cpy_screen:
+		mov cx,24
+		mov si,160
+		mov di,0
+cpyScreenRow:
+		push cx
+		push si
+		push di
+		mov cx,80
+		cld
+		rep movsw
+
+		pop di
+		pop si
+		pop cx
+		add si,160
+		add di,160
+		loop cpyScreenRow
+
+		ret
+;===================================
+init_reg:
+		mov ax,0b800H
+		mov ds,ax
+		mov es,ax
+		mov ax,0
+
+		ret
+
+code ends
+
+end start
+
+pushf和popf有关标志位寄存器的指令
+15  14  13  12  11  10  9  8  7  6  5  4  3  2  1  0
+                       of  df  if  tf sf zf    af     pf     cf
+pushf(f=flag)->栈
+popf
+看案例:下面程序执行后ax=?
+mov ax,0		ax=0000 0000 0000 0000
+push ax
+popf		psw(program status words)=0000 0000 0000 0000(标志位寄存器全设置成0)
+mov ax,0fff0H	ax=fff0H
+add ax,0010H	ax=0000H	cf=1	psw=0000 0000 0100 0101(这个是)
+pushf		ax的0000 0000 0100 0101放入了栈中
+pop ax		然后在拿出来ax=0000 0000 0100 0101
+and al,1100 0101B	
+and ah,0000 1000B	ax=0000 0000 0100 0101
+ax=0045H
+
+
+内中断
+中断向量表
+中断就是发生了需要cpu理科去处理的信息
+1.除法错误 divide overflow 终端位从ei编程di了
+2.单步执行 就是在debug中一上来直接按t,按多点就会有了
+3.执行into指令
+4.执行int指令
+中断信息	需要一个程序去处理	而程序是cs:[ip]
+cs:ip->程序的入口 段地址:偏移地址 这段程序也是存在内存中的
+这个内存叫中断向量表	中断类型码
+0号处理中断信息的程序地址	ffffH:0000H
+1号处理中断信息的程序地址	2222H:1111H
+2号处理中断信息的程序地址	4444H:2222H
+到底存在内存的那个位置呢	0000:0000 - 0000:03ff
+在这个0000:0000 - 0000:03ff范围内有很多地址是没有使用的	老师推荐是到0000:0200范围的地址
+这个地方如何查找
+为什么是*4呢,cs和ip一共4个字节,为什么cs+2呢,因为cs在高地址,所以+2
+查找第0号
+0:0*4=ip
+0:0*4+2=cs
+查找第1号
+0:1*4=ip
+0:1*4+2=cs
+查找第2号
+0:2*4=ip
+0:2*4+2=cs
+中断程序就是修改cs和ip
+老师说的方法=函数=call Boot
+cpu通过中断类型码 找到中断向量表 程序地址的位置
+代码
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		int 0	;ip是0*4,cs是0*4+2
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
 
