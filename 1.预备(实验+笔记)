@@ -6809,3 +6809,138 @@ code ends
 
 end start
 
+检测点12.1
+1,用Debug查看内存，情况如下
+ao80: 08as 68 10 A7 00 8B 017B 80	16 B0 oD 83 8BB1 7B B0
+则3号中断源对应的中断处理程序的入口地址为:
+0070 8b03
+2，存储N号中断源的中断处理程序入口的偏移地址的内存单元的地址:
+段地址: (0:n*4+2) : (0:n*4)
+什么启示:可以把程序的入口写在一块可以这样访问 call word ptr ds:[0]	ds:[4]	ds:[8]	ip=ds:[0]
+向代码的设计者学习,有点像指针数组
+
+中断的过程
+中断非常类似于call指令,函数
+call cpy_Boot
+cpu通过中断类型码 找到中断向量表 程序地址的位置
+call dword ptr ds:[0]
+push cs
+push ip
+jmp dword ptr ds:[0]
+ip=ds:[0]
+cs=ds:[0+2]
+中断类似于call指令,所以也要push和pop
+1.取得中断类型吗
+2.保存标志位寄存器->栈 pushf
+3.将标志位寄存器的第8 tf 和第9位 if 设置为0
+tf和if和中断有关
+4.push cx
+5.push ip
+6.cs = N*4+2	ip = N*4
+中断处理返回的办法
+也就是需要ret,而中断程序的处理返回办法是iret
+ss:sp	ip	cs	pushf	栈从高位到低位排序
+需要这样才能返回完,而这样也是iret
+pop ip
+pop cs
+popf
+ret = pop ip
+iret =  pop ip	pop cs	popf	所以iret是一直pop到popf
+
+实验12 编写0号中断处理程序
+编写0号中断的处理程序,使得在除法溢出发生时，在屏幕中间显示字符串“divide error"
+要求:仔细跟踪调试，在理解整个过程之前，不要进行后面的学习
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'divide error',0	;会被内存覆盖 中断是cpu理科去处理的程序
+				;所以放在安全的区域0:200~0:3ff	0:0~0:3ffH 虽然cpu不用,但这个区域是中断向量表
+				;希望写到0:7e00H
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int0	;调用0号中断,写好中断程序并复制到指定位置一般都是在0:7e00位置
+		call set_new_int0	;入口改成我们写好的地址
+
+		mov ax,0
+		mov dx,1
+		mov bx,1
+		div bx
+
+		mov ax,4C00H
+		int 21H
+;=========================================
+set_new_int0:
+		mov bx,0
+		mov es,bx
+
+		mov word ptr es:[0*4],7e00H
+		mov word ptr es:[0*4+2],0
+
+		ret
+;=========================================
+new_init0:
+		jmp newInt0	;jmp一开始占3个字节,但是涉及到跳转指令的计算占3字节,会出现nop,为什么会有nop
+	;jmp far ptr	
+	;jmp short ptr	经过编译之后只用short ptr就能完成,所以加个nop,但还是占3个字节
+string:
+		db	'divide error',0
+newInt0:
+		mov bx,0b800H
+		mov es,bx
+		mov bx,0
+		mov ds,bx
+		
+		mov di,160*10+2*30
+		mov si,offset string - new_init0 + 7e00H
+
+		;增加难度,核心的把字符打印在屏幕上变成一个函数
+		call show_string
+
+showStringRet:
+		mov ax,4c00H
+		int 21H
+
+new_init0_end:
+		nop
+;=========================================
+show_string:
+
+showString:
+		mov dl,ds:[si]
+		cmp dl,0
+		je showStringRet
+		mov es:[di],dl
+		inc si
+		add di,2
+		jmp showString
+
+		ret
+;=========================================
+cpy_new_int0:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_init0
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_init0_end - new_init0
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
