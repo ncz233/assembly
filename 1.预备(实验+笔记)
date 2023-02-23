@@ -6906,7 +6906,6 @@ newInt0:
 		;增加难度,核心的把字符打印在屏幕上变成一个函数
 		call show_string
 
-showStringRet:
 		mov ax,4c00H
 		int 21H
 
@@ -6914,6 +6913,11 @@ new_init0_end:
 		nop
 ;=========================================
 show_string:
+		push dx
+		push ds
+		push es
+		push si
+		push di
 
 showString:
 		mov dl,ds:[si]
@@ -6924,6 +6928,12 @@ showString:
 		add di,2
 		jmp showString
 
+showStringRet:
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
 		ret
 ;=========================================
 cpy_new_int0:
@@ -6940,6 +6950,38 @@ cpy_new_int0:
 		rep movsb
 
 		ret
+
+code ends
+
+end start
+
+中断的特殊情况和tf if标志位
+中断的执行过程第三步为什么将tf和if设置成0呢
+3.将标志位寄存器的第8 tf 和第9位 if 设置为0
+中断指令也是一条条指令组合起来的,如果tf和if都等于1,那么中断指令就会一直持续下去
+也就是设置成0的意义就是不让cpu无线的中断
+debug中的t单步中断也是使用了这些知识
+在执行单步中断的时候,设置栈偏移地址寄存器的时候,会直接执行并且跳过,用中断也没用,设置栈的时候
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128	;设置栈的时候单步中断也没用直接执行加跳过
+		其中,栈中存的是(除了第一个字节数据)设置sp的下一个指令地址,还有一个栈的ss地址
+因为如果设置完CS 后继续响应中断，栈中需要压入 标志位寄存器，CS和IP  中断会导致值栈顶标记 与设定的不一致 设置的SS:SP 指向的不是正确的栈顶
+
+		mov ax,4C00H
+		int 21H
 
 code ends
 
