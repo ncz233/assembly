@@ -6986,3 +6986,319 @@ code segment
 code ends
 
 end start
+
+int 指令
+中断过程
+1.取中断类型码
+2.标志位寄存器入栈pushf	if=0 tf=0
+3.push cs	push ip
+4.cs=N*4+2	ip=N*4
+非常向call指令call dword ptr
+代码题
+1.写一个中断程序例程号,整个屏幕都显示感叹号
+  assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int0
+		call set_int0
+
+		int 0
+
+		mov ax,4C00H
+		int 21H
+;======================================
+set_int0:
+		mov ax,0
+		mov ds,ax
+		mov si,0
+		mov ds:[si],7e00H
+		mov word ptr ds:[si+2],0
+
+		;也可写成
+		;mov bx,0
+		;mov es,bx
+		;cli
+		;mov word ptr es:[0*4],7e00H
+		;mov word ptr es:[0*4+2],0
+		;sti
+		;cli和sti后面会讲到
+		ret
+;======================================
+new_int0:
+		jmp newInt0Ret
+char:
+		db	"!"
+newInt0Ret:
+		mov ax,0b800H
+		mov es,ax
+		mov ax,0
+		mov ds,ax
+
+		mov si,offset char - new_int0 + 7e00H
+		mov di,0
+		mov dl,ds:[si]
+		mov cx,2000
+
+		call show_char
+;showChar:
+;		mov es:[di],dl
+;		add di,2
+;		loop showChar
+
+		iret
+;======================================
+show_char:	;加入call必须在new_init0_ret前面,不然复制不上去导致,call会传错
+		push dx
+		push es
+		push di
+showChar1:
+		mov es:[di],dl
+		add di,2
+		loop showChar1
+show_char_ret:
+		pop di
+		pop es
+		pop bx
+		ret
+new_int0_ret:
+		nop
+
+;======================================
+cpy_new_int0:
+		mov ax,cs
+		mov ds,ax
+		mov si,offset new_int0
+
+		mov ax,0
+		mov es,ax
+		mov di,7e00H
+
+		mov cx,offset new_int0_ret - new_int0
+		cld
+		rep movsb
+
+cpy_new_int0_ret:
+		ret
+code ends
+
+end start
+
+end start
+
+2.编写和安装7ch中断程序	中断类型码7ch
+实现一个数字的平方
+参数ax=3456
+返回值 dx=高16位 ax=低16位
+不能用push和pop,因为在中断里面用push和pop,如果外面是dx=0,那pop出去的还是0
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int7CH
+		call set_new_int7CH
+
+		mov ax,3456
+		int 7CH
+
+		mov ax,4C00H
+		int 21H
+;===========================================
+set_new_int7CH:
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[7CH*4],7e00H
+		mov word ptr es:[7CH*4+2],0
+		sti
+		;cli和sti跟标志位寄存器有关
+		ret
+;===========================================
+new_int7CH:
+		mul ax
+
+		iret
+new_int7CH_end:
+		nop
+;===========================================
+cpy_new_int7cH:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int7CH
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int7CH_end - new_int7CH
+		cld
+		rep movsb
+		ret
+
+code ends
+
+end start
+
+编写和安装7ch中断程序
+将一个全是字母,以0结尾的字符串,转换为大写
+ds:[si]指向字符首地址
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'conversation',0	;中断向量表	是一堆cs:ip地址入口集合
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		;call init_eng
+		;call show_string
+		call cpy_new_int7CH
+		call set_new_int7CH
+
+		int 7CH
+		;call show_string
+
+		mov ax,4C00H
+		int 21H
+;===========================================
+;init_eng:
+;		mov bx,data
+;		mov ds,bx
+;		mov bx,0b800H
+;		mov es,bx
+;
+;		ret
+;
+;===========================================
+;show_string:
+;		mov bx,data
+;		mov ds,bx
+;		mov bx,0b800H
+;		mov es,bx
+;
+;		mov si,0
+;		cmp byte ptr ds:[si],'a'
+;		jb showString
+;show_String1:
+;		cmp byte ptr ds:[si],0
+;		je showStringRet1
+;		mov di,160*10+2*30
+;		mov bl,ds:[si]
+;		mov es:[di],bl
+;		add di,2
+;		inc si
+;		jmp show_String1
+;		
+;showStringRet1:
+;		ret
+;==========================================
+;showString:
+;
+;show_String2:
+;		cmp byte ptr ds:[si],0
+;		je showStringRet2
+;		mov di,160*11+2*30
+;		mov bl,ds:[si]
+;		mov es:[di],bl
+;		add di,2
+;		inc si
+;		jmp show_String2
+;showStringRet2:
+;		ret
+;===========================================
+set_new_int7CH:
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[7CH*4],7e00H
+		mov word ptr es:[7CH*4+2],0
+		sti
+		;cli和sti跟标志位寄存器有关
+		ret
+;===========================================
+new_int7CH:
+		push bx
+		push dx
+		push ds
+		push si
+
+		mov bx,data
+		mov ds,bx
+		mov si,0
+
+newInt7CH:
+		cmp byte ptr ds:[si],0
+		je new_int7CH_ret
+		cmp byte ptr ds:[si],'a'
+		jb new_int7CH_ret
+		cmp byte ptr ds:[si],'z'
+		ja new_int7CH_ret
+		and byte ptr ds:[si],11011111B
+		inc si
+		jmp newInt7CH
+new_int7CH_ret:
+		pop si
+		pop ds
+		pop dx
+		pop bx
+		iret
+new_int7CH_end:
+		nop
+;===========================================
+cpy_new_int7cH:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int7CH
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int7CH_end - new_int7CH
+		cld
+		rep movsb
+		ret
+
+code ends
+
+end start
+
+深入理解int iret 和栈
+int是pushf push cs push ip
+iret是pop ip pop cs pop f
+都和栈用关系,所以题目是int之后修改栈中数据,最后返回的时候改变
+全屏幕显示! 不用loop指令 用int 7cH来模拟loop指令
