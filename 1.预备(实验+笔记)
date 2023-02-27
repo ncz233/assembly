@@ -7302,3 +7302,181 @@ int是pushf push cs push ip
 iret是pop ip pop cs pop f
 都和栈用关系,所以题目是int之后修改栈中数据,最后返回的时候改变
 全屏幕显示! 不用loop指令 用int 7cH来模拟loop指令
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_7cH	;复制
+		call set_new_7cH	;入口
+
+		call init_reg	;初始化
+
+		mov di,160*12
+		mov cx,80
+		mov bx,offset s-offset se
+s:
+		mov byte ptr es:[di],'!'
+		add di,2
+		int 7cH	;loop是转移指令 标号处地址-loop指令后第一个字节的地址
+se:		
+		nop	;ip cs pushf (ip和cs在这个位置,ip+(s-se)=ip-这区间的字节数和ip-(se-s)一样 就是2 + (0 -1)=2 - (1 - 0))
+
+		mov ax,4C00H
+		int 21H
+;--------------------------------------------------
+init_reg:
+		mov bx,0b800H
+		mov es,bx
+		ret
+;--------------------------------------------------
+set_new_7cH:
+		mov bx,0
+		mov ds,bx
+
+		cli
+		mov word ptr ds:[7cH*4],7e00H
+		mov word ptr ds:[7cH*4+2],0
+		sti
+
+		ret
+;--------------------------------------------------
+new_7cH:
+		push  bp	;ss:[bp]	; bp ip cs pushf
+		mov bp,sp
+		dec cx
+		jcxz new7cHRet
+		add ss:[bp+2],bx	;因bx=s-se是负数,所以加上一个负数是减法(ip+(s-se))最后还是在s的点上,因ip=se,直到cx=0
+new7cHRet:
+		pop bp
+		iret
+new_7cH_end:
+		nop
+
+;--------------------------------------------------
+cpy_new_7cH:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_7cH
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_7cH_end - new_7cH
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
+
+监测点13.1
+1,前面我使用中断7CH实现了1oop的功能，大家想一下 7CW 中断所能进行的最大位移是多少 有条件转移
+-128~127
+bx,offset s - offset se 范围是ffffH,因是bx
+
+2，用7CH中断完成jmp near ptr s指令的功能，完成显示一行以0结尾的字符串 无条件转移
+-128~127(可能有误,可能是ffffH)
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'conversation',0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int0
+		call set_new_int0
+
+		call init_reg
+		call show_conversation
+
+		mov ax,4C00H
+		int 21H
+;============================================
+show_conversation:
+		mov si,0
+		mov di,160*12+2*40
+		mov bx,offset showString - offset showStringRet
+showString:
+		cmp byte ptr ds:[si],0
+		je showStringRet
+		mov dl,ds:[si]
+		mov es:[di],dl
+		inc si
+		add di,2
+		int 7cH
+showStringRet:
+		ret
+;============================================
+init_reg:
+		mov bx,data
+		mov ds,bx
+
+		mov bx,0b800H
+		mov es,bx
+
+		ret
+;============================================
+set_new_int0:
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[7cH*4],7e00H
+		mov word ptr es:[7cH*4+2],0
+		sti
+
+		ret
+;============================================
+new_int0:
+		push bp
+		mov bp,sp
+		add ss:[bp+2],bx
+		pop bp
+		iret
+new_int0_end:
+		nop
+;============================================
+cpy_new_int0:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int0
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int0_end - offset new_int0
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
+
+bios和dos系统所提供的中断程序-中断程序
