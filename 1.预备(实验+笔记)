@@ -7480,3 +7480,116 @@ code ends
 end start
 
 bios和dos系统所提供的中断程序-中断程序
+int0
+中断向量表中的的地址是bios登记在 中断向量表里的	;存在于rom内存中
+bios必须满足什么条件
+rom内存 只允许读 不允许写 固化在内存中,没电还是存在的,ram没电直接没有了
+bios也是一个程序 basic input output system
+它做4件事情
+1.硬件系统的检测和初始化程序
+2.将外部中断和内部中断程序 登记在 中断向量表中
+3.用于对 硬件设备进行i/o操作的中断程序 放到中断向量表中
+4.其他相关于硬件系统的 中断程序
+以上就是别人提供给我的中断程序
+电脑开机
+第一条指令在 cs=ffff ip=0	跳转去执行bios的程序\
+做 1.硬件系统的检测和初始化程序
+2.将中断程序的cs和ip 直接登记在中断向量表中	;我们以前做的时候是要复制cpy_new_int0,但bios不用因为存在于rom内存中固化在
+电脑中了
+3.调用int19H进行操作的系统引导,将计算机交给操作系统控制dos
+4.dos系统将相应的 中断程序入口地址 存到中断向量表中 包括程序
+也就是后面的课程是要用别人写的中断程序去写程序
+
+监测点13.2
+下面的说法是否错误
+1.我们可以编程改变ffff:0处的指令,使得cpu不去执行bios中的硬件系统检查和初始化程序rom
+不能	不怕死的可以去逝世
+mov word ptr ds:[ffff] [0] 要在dos实模式下去执行
+
+2.int 19H中断 可以由dos提供
+可以修改19H但做操作的系统引导是不知道的
+因有调用了int 19H才有给dos权限 dos怎么提供int 19H?
+对的(可能是错的)
+
+bios提供给我们的中断程序
+编程:在屏幕的第5行 12列 显示3个红底高亮闪烁绿色的'a'
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'conversation',0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov ah,2	;防止光标
+		mov bh,0	;第0页
+		mov dh,5	;行号
+		mov dl,12	;列号
+		int 10H
+
+		mov ah,9	;在光标的位置上显示字符
+		mov al,'a'	;字符
+		mov bl,11001001B	;颜色
+		mov bh,0;	;第0页
+		mov cx,3	;字符重复个数
+		int 10H	;dios提供的(有点像调用库函数)
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+
+dos提供的中断程序
+编程:在屏幕的第5行 12列 显示字符串'welcome to masm','$'(这个库函数是'$'结尾的)
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	'welcome to masm','$'
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+	start:	mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov ah,2	;放置光标
+		mov bh,0	;第0页
+		mov dh,5	;行号
+		mov dl,12	;列号
+		int 10H
+		
+		mov ax,data
+		mov ds,ax
+		mov dx,0	;ds:[dx] = ds:0
+		mov ah,9	;
+		int 21H	;因ah=9,所以调用int21H有变换,类似c++重载
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+
+实验12.1
+编写并安装int 7cH 中断程序,功能为 显示一个用0结束的字符串 中断程序安装在0:200
+参数
+	db=行号
+	dl=列号
+	cl=颜色
+	ds:si=指向字符串首地址
