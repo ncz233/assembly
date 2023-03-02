@@ -7808,3 +7808,201 @@ end start
 实验13.3
 补全下面程序,分别在屏幕,第2,4,6,8行 显示4句英语诗文	;dos中断程序
 体会编程思想
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+string1:	db	'Good,better,best ',0
+string2:	db	'Never let it rest ',0
+string3:	db	'Till good is better ',0
+string4:	db	'And better ,best ',0
+
+address_string:	dw	offset string1	;bx+0
+		dw	offset string2	;+2
+		dw	offset string3	;+4(2+2)
+		dw	offset string4	;中断向量表,和指针差不多这个是指针的地址,首地址
+row:	db	2,4,6,8
+;*************************************************************
+	start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call clear_screen
+		call show_prose
+	
+		mov ax,4C00H
+		int 21H
+;====================================
+clear_screen:
+		mov bx,0
+		mov dx,0700H
+		mov cx,2000
+clearScreen:
+		mov es:[bx],dx
+		add bx,2
+		loop clearScreen
+
+		ret
+;====================================
+show_prose:
+		mov bx,offset address_string
+		mov di,160*2
+		mov cx,4
+
+showProse:
+		mov si,ds:[bx]
+		call show_string
+		add di,160
+		add di,160
+		add bx,2
+		loop showProse
+
+		ret
+;====================================
+show_string:
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+showString:
+		cmp byte ptr ds:[si],0
+		je show_string_end
+		mov dl,ds:[si]
+		mov es:[di],dl
+		add di,2
+		inc si
+		jmp showString
+
+show_string_end:
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		ret
+;====================================
+init_reg:
+		mov bx,0b800H
+		mov es,bx
+
+		mov bx,cs
+		mov ds,bx
+		ret
+
+code ends
+
+end start
+补全命令
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+s1:	db	'Good,better,best ','$'
+s2:	db	'Never let it rest ','$'
+s3:	db	'Till good is better ','$'
+s4:	db	'And better ,best ','$'
+
+s:	dw	offset s1
+	dw	offset s2
+	dw	offset s3
+	dw	offset s4	;中断向量表
+
+row:	db	2,4,6,8
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov ax,cx
+		mov ds,ax
+		mov bx,offset s
+		mov si,offset row
+		mov cx,4
+ok:
+		mov bh,0
+		mov dh,cs:[si]	;行号
+		mov dl,0
+		mov ah,2
+		int 10H
+
+		mov dx,ds:[bx]	;ds:[dx]->要得到首地址
+		mov ah,9
+		int 21H
+		inc si
+		add bx,2
+		loop ok
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+
+
+端口
+端口英文(port->港口->卸货->用船(数据)某一块芯片)
+cpu(因该说主板)	地址线	主板是其他电子器件链接的地方
+		数据线
+		控制线
+cpu是一块芯片	寄存器(地址寄存器,数据寄存器)
+键盘上也是有芯片	寄存器 按'a'
+后面课程讲cmos	地址寄存器 数据寄存器	保存时间用的(保存数据用的)0~128字节
+端口的读取与写入是不一样的
+mov ds:[0],键盘芯片中的数据(端口读取,与写入)	;但这是不对的
+而是用这个
+in	;读取(从端口读取出来)
+out	;写入(写入到端口里面,然后端口又放到输出设备的芯片中)
+端口有个编号像地址一样的东西范围是0~65535	他就是这么设计的,应该是方便寄存器操作的
+al	0~255
+ax	0~65535	;所以这种情况下用这个
+
+端口补充
+主板上有很多个接口,这些接口链接的电子器件也就几个,所以cpu给他们几个特殊的指令也就是in out,我们平时是mov
+端口的内存和以前学的内存不一样且互不相通内存可以从0~N,端口也可以从0~N,所以cpu是根据命令来区分是访问内存还是端口的,所以才有in和out来读写端口
+端口也是有编号的举例子
+in al,键盘的端口	;伪代码
+特殊的接口cmos,因为他是有地址寄存器和数据寄存器,我们知道它是保存时间的,且有128字节
+in al,cmos的端口	;伪代码
+mov al,10		;要从端口中读取的地址位置
+out 70H,al		;70H是cmos地址寄存器的端口编号
+		;将al中的数据 写入到70H的数据端口中
+in al,70H		;数据端口号是多少是70H
+如果你是向第71个位置上写东西如22
+mov al,22	;写的数据
+out 71H,22
+反正最后会明白的
+总结
+in al,60	;从端口中读取数据 直接读取到0~255
+1.cpu通过地址线,将目标端口的地址信息60H发出(同之目标端口我想要)
+2.cpu通过控制线发出端口读取指令,将选中端口所在的芯片,通知它 将要从里面读取数据(准备中)
+3.端口的芯片将60H段中的数据 通过数据线送入cpu(获得)
+out 71H,al	;将al中的数据 写入到71H的数据端口
+in和out指令,只能使用ax或者al来存放从端口中入的数据或者发送到端口中的数据,访问8位端口使用al 16位端口使用ax
+in al,20H	;20H端口读取一个字节
+out 20H,al	;往20H段端口 写入一个字节
+cpu总共能够读取的端口地址0~65535
+
+cmos ram芯片
