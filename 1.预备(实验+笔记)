@@ -8269,4 +8269,95 @@ mov word ptr ds:[7cH*4+2],0	;所以需要这两个指令
 sti
 
 键盘处理的过程
+如:我们手动打了个'a'字母,会保存到键盘中这个叫扫描码
+扫描码表是对应的(类似ASCII表)
+扫描码分为通码和断码
+在一直按的时候没有放开是通码
+按的时候放看是断码 = 通码+80H
+扫描码会把里面的内容放进端口中
+放进端口可以读数据了如放在了60H
+in al,60H
+因键盘是中断的,应该有相应的程序来处理
+所以是bios来提供键盘中断处理程序 中断向量表
+引发中断条件就是sti即if=1
+过程是,键盘的输入到达60H端口
+相关芯片 向cpu发出中断类型码为9 的可屏蔽中断信息	9*4 9*4+2
+如果if=1那么他就去执行int9中断	在前几章用到int 10别人给我们的中断程序 在这里我们也要用别人写的int 9因有硬件细节
+1.读出60H端口的扫描码	;硬件做这些3个步骤
+2.如果是字符键如'abcde...'的扫描,将这个扫描码和对应的ascii 放到bios中的键盘缓冲区
+如哦是控制键如'ctrl shift'则将其转变状态字节 记录到一个存储状态的字节单元
+3.对键盘系统的相关控制,比如说,向相关芯片发出应答事情 是否要bios提供的int 9?还是自己写(自己写不可能因为有硬件细节)
+键盘缓冲区 15 字型数据(因为是字符型)扫描码ASCII码 高位存放扫描码 低位存放ascii
+0040:0017 存储状态字节(按键盘会改变)
+编程把存储状态字节显示出来
+assume cs:code,ds:data,ss:stack
 
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call show_keyuord_status
+
+		mov ax,4C00H
+		int 21H
+;================================
+show_status:
+		push cx
+		push dx
+		push ds
+		push es
+		push si
+		push di
+
+		mov cx,8
+showStatus:
+		mov dx,0	;shl shr
+		shl al,1	;cf=1	'1'
+		adc dx,30H	;将cf中的值加到dx中
+		mov es:[di],dl
+		add di,2
+		loop showStatus
+
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		pop cx
+		ret
+;================================
+show_keyuord_status:
+		mov si,17H
+		mov di,160*10+40*2
+testA:
+		mov al,ds:[si]
+		call show_status
+		jmp testA
+
+		ret
+;================================
+init_reg:
+		mov bx,40H
+		mov ds,bx
+
+		mov bx,0b800H
+		mov es,bx
+		ret
+
+code ends
+
+end start
+
+编写并安装自己的int9(中断调用时cs默认变成0要注意)
