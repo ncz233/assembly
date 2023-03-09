@@ -8361,3 +8361,187 @@ code ends
 end start
 
 编写并安装自己的int9(中断调用时cs默认变成0要注意)
+遗留下的问题是否要用bios提供的int 9
+写个代码
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int9
+		call sav_old_int9
+		call set_new_int9
+
+		call init_reg
+;testA:
+;		mov ax,1000H
+;		jmp testA
+		call set_old_int9
+
+		mov ax,4C00H
+		int 21H
+;============================
+set_old_int9:
+		mov bx,0
+		mov es,bx
+		cli
+		push es:[200H]
+		pop es:[9*4]
+		push es:[202H]
+		pop es:[9*4+2]
+		sti
+		ret
+;============================
+init_reg:
+		mov bx,0b800H
+		mov es,bx
+		mov bx,data
+		mov ds,bx
+
+		ret
+;============================
+new_int9:
+		push ax
+
+		in al,60H
+		pushf	;这里是模拟中断类似int9指令
+		call dword ptr cs:[200H]	;当cs调用这条指令cs=0(调用中断cs默认变成0这里调用int9) push cs push ip
+
+		cmp al,48H	;这里是扫描码,在百度上看去
+		je isUp
+		cmp al,50H
+		je isDown
+
+		cmp al,3bH	;f1的扫描码
+		jne int9Ret
+
+		call chang_screen_color
+int9Ret:
+		pop ax
+		iret
+;============================
+isUp:
+		mov bx,0b800H
+		mov es,bx
+		mov di,160*10+2*40
+		mov byte ptr es:[di],'U'
+		jmp int9Ret
+		ret
+
+isDown:
+		mov bx,0b800H
+		mov es,bx
+		mov di,160*10+2*40
+		mov byte ptr es:[di],'D'
+		jmp int9Ret
+		ret
+;============================
+chang_screen_color:
+		push bx
+		push cx
+		push es
+
+		mov bx,0b800H
+		mov es,bx
+		mov bx,1
+		mov cx,2000
+changColor:
+		inc byte ptr es:[bx]
+		add bx,2
+		loop changColor
+
+		pop es
+		pop cx
+		pop bx
+		ret
+new_int9_end:
+		nop
+;============================
+set_new_int9:
+		push bx
+		push es
+
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[9*4],7e00H
+		mov word ptr es:[9*4+2],0
+		sti
+
+		pop es
+		pop bx
+		ret
+;============================
+sav_old_int9:
+		mov bx,0
+		mov es,bx
+
+		cli
+		push es:[9*4]
+		pop es:[200H]
+		push es:[9*4+2]
+		pop es:[202H]
+		sti
+
+		ret
+;============================
+cpy_new_int9:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int9
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int9_end - offset new_int9
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
+pushf	;保存标志位
+
+pushf	;
+pop ax	;标志位存放到ax中
+and ah,11111100B	;这里是设置标志位,9位if和8位tf设置成0
+push ax
+popf
+既然已经调用int9了找这个东西,已经将if和tf设置成0了,所以我们就不用上面这几步了,只用保存标志位寄存器了
+
+int9运用的补充
+如果我们调用其他人的程序,我们已经把int9改变了,这样不太好
+也就是最后的时候设置无线循环,在一定条件下设置跳出循环,且把ing9改回去,不能把后面的程序的int9改了
+testA:
+	mov ax,1000H
+	jmp testA
+	call set_old_int9
+
+set_old_int9:
+	mov bx,0
+	mov es,bx
+	cli
+	push es:[200H]
+	pop es:[9*4]
+	push es:[202H]
+	pop es:[9*4+2]
+	sti
+	ret
+
+监测点15.1
