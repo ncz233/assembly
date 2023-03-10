@@ -8545,3 +8545,132 @@ set_old_int9:
 	ret
 
 监测点15.1
+pushf	;保存标志位
+pushf
+pop ax	;获取标志位在ax中
+and ah,11111100B	;修改标志位if=0 tf=0
+push ax	;压入标志位
+popf	;取出标志位
+call dword ptr ds:[0]	;在调用int9的时候上面的命令就已经在调用int9的时候就帮你提前弄好了
+优化之后
+pushf
+call dword ptr ds:[0]	;模拟int9中断
+仔细法分析上面程序中的主程序,看看有什么潜在的错误
+主程序中如果执行设置int9中断 地址的时候 发生了键盘中断
+错就错在了,没加cli和sti因为在设置内存向量表的时候可能会被中断,cli if=0 就不会被中断了
+mov word ptr es:[9*4],7e00H
+mov word ptr es:[9*4+2],0
+提示 sti cli
+
+实验15 安装新的int9中断程序
+作用,按下a键之后 如果松开,全屏显示'a'其他照常处理
+断码 = 通码+80H
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int9
+		call sav_old_int9
+		call set_new_int9
+testA:
+		mov ax,1000H
+		jmp testA
+
+		mov ax,4C00H
+		int 21H
+;=============================
+new_int9:
+		push ax
+		in al,60H
+		pushf
+		call dword ptr cs:[200H]
+
+		cmp al,1eH+80H
+		jne int9Ret
+		call set_screen_letter
+
+int9Ret:
+		pop ax
+		iret
+;=============================
+set_screen_letter:
+		push bx
+		push cx
+		push dx
+		push es
+
+		mov bx,0b800H
+		mov es,bx
+		mov bx,0
+		mov dl,'A'
+setScreenLetter:
+		mov es:[bx],dl
+		add bx,2
+		loop setScreenLetter
+
+		pop es
+		pop dx
+		pop cx
+		pop bx
+		ret
+
+new_int9_end:
+		nop
+;=============================
+set_new_int9:
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[9*4],7e00H
+		mov word ptr es:[9*4+2],0
+		sti
+		ret
+;=============================
+sav_old_int9:
+		mov bx,0
+		mov es,bx
+
+		cli
+		push es:[9*4]
+		pop word ptr es:[200H]
+		push es:[9*4+2]
+		pop word ptr es:[202H]
+		sti
+
+		ret
+;=============================
+cpy_new_int9:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int9
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int9_end - offset new_int9
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
+
+
+描述内存长度的标号
