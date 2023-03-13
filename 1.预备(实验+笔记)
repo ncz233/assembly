@@ -8674,3 +8674,88 @@ end start
 
 
 描述内存长度的标号
+直接定址表 有点像 中断向量表
+以前我们用offset xxx 得到地址
+a: 只能表示偏移地址
+assume cs:code,ds:data,ss:stack	;段地址和cs:code有关后面就有办法写在ds:data中
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+a	db	1,2,3,4,5,6,7,8	;修改之后的,没改前有;号,然后start中的代码是以前学的
+b	dw	0
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		;mov si,offset a
+		;mov di,offset b
+		mov si,0
+		mov cx,8
+s:
+		;mov al,cs:[si]
+		mov al,cs:a[si]	;cs:[offset a+si]	像我们之前的ds:[bx+si],但这样的写法不是最优的,最优的要把段地址写出来是cs:a[si],最后发现cs:[offset a+si]
+		mov ah,0
+		;mov cs:[bx],ax
+		add b,ax	;这个b表示cs:[offset b]这个样子的
+		inc si
+		loop s
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+用自己的方式来表示,不用书上的
+这里的NUNBER(没有冒号) 表示偏移地址 表示长度(数据的长度)
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+NUNBER	dw	0	;这样写和数组一样
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,offset NUNBER
+		mov word ptr cs:[bx],55H	;(以上的2步骤就是我们以前学的)
+
+		mov NUNBER,66H	;编译成机器码的时候和上面的2步是一样的,但是这样更加方便
+		mov NUNBER,77H	;这样方便我们的逻辑
+		;这样的写法前提是写在code中
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+然后用这种方法去修改上面的(就是c中的数组)
+这节课要明白 mov a,15时(前提code中有a这样数据定义)
+意思是,15直接赋值给了a,但是是首地址,如果要改或者说是要取连续的数据还是要
+mov bx,offset a 这样
+mov a,15这样写,只能改变首地址,但这样写本质是没变的
+可以改变访问首地址,就是写成mov a[2],15 这样就可以改变数组中第3个数字了
+汇编语言
+汇编指令
+伪指令 编译器处理,最终翻译成汇编指令
