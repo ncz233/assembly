@@ -8759,3 +8759,57 @@ mov a,15这样写,只能改变首地址,但这样写本质是没变的
 汇编语言
 汇编指令
 伪指令 编译器处理,最终翻译成汇编指令
+
+ds data
+上面的是code段中的定义数据(数组)
+assume cs:code,ds:data,ss:stack	;段地址和cs:code有关后面就有办法写在ds:data中
+
+data segment
+;a		db	1,2,3,4,5,6,7,8
+;b		dw	0
+;c		dw	123,3,3,2,4,213,1
+
+;ADDRESS_a	dw	offset a	;这算是一个技巧,保存地址的偏移地址
+;		dw	offset b
+;		dw	offset c
+;		dw	offset s	;这个偏移地址是cs的
+;以上是获取偏移地址,段地址也可以获取
+a		db	1,2,3,4,5,6,7,8
+b		dw	0
+;c		dd	a,b	;记录位置的段地址和偏移地址,偏移地址在低地址,段地址在高地址
+;c可以写成 但意思一样
+c		dw	offset a, seg a, offset b, seg b	;seg指令是得到段地址,要写成dw类型
+
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:
+		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,data
+		mov ds,bx
+
+		mov si,0
+		mov cx,8
+s:
+		mov al,ds:a[si]	
+		mov ah,0
+		add b[0],ax	;这个b表示cs:[offset b]这个样子的
+		inc si
+		loop s
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+
+一个奇怪的想法
