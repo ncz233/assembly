@@ -8813,3 +8813,304 @@ code ends
 end start
 
 一个奇怪的想法
+assume cs:code,ds:data,ss:stack	;段地址和cs:code有关后面就有办法写在ds:data中
+
+data segment
+NUMBER_one	dw	0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+NUMBER		dw	0	;这里是cs:0的位置,而不是start的第一指令
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,data	;当加入了这个指令,就找到data
+		mov ds,bx
+
+;		mov NUMBER_one,33H	;是否能找到自己的位置,能ds和data是一起的是同一块内存,段地址是ds,类似data=ds
+;		mov NUMBER,44H		;这个可以找到,在cs中
+;为什么有这种想啊呢,原因是一个call指令
+		call show_welcome
+
+		mov ax,4C00H
+		int 21H
+;===============================
+show_welcome:	jmp show
+
+string	db	'123',0
+
+show :		mov al,cs:string[1]	;在string中找,默认是第0个下表数据,想修改的话改[]里的就行了
+		mov NUMBER_ONE,44H	;在ds中找(前面定义了ds)
+		ret
+
+code ends
+
+end start
+
+检测点16.2
+将下面程序data段中a处的8个数据累加,结果存储到b处的字型数据中,补全程序
+assume cs:code,ds:data,ss:stack	;段地址和cs:code有关后面就有办法写在ds:data中
+
+data segment
+a	db	1,2,3,4,5,6,7,8
+b	dw	0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		mov bx,data	;-------
+		mov ds,bx	;-------	;如果不写默认是ds中读写,说人话就是需要初始化ds中的数据才能确保add b,ax不会找错地方
+
+		mov si,0
+		mov cx,8
+
+s:		mov al,a[si]
+		mov ah,0
+		add b,ax
+		inc si
+		loop s
+
+		mov ax,4C00H
+		int 21H
+
+code ends
+
+end start
+
+直接定址表使用(1)
+先考虑个问题,曾经使用debug -d 上面都是一个个数据有字符,如果我们要写个代码在上面显示,这个是debug来显示这个字符
+16进制的数字显示在屏幕上
+'0123456789abcdef'
+最简单的办法是 如果这个数值为0
+mov al,34H
+mov dl,al
+
+and al,00001111B
+shr dl,1
+shr dl,1
+shr dl,1
+shr dl,1	;这里不能用add 30H 因为后面的abcdef你显示不了
+
+cmp al,4
+je getchar
+getchar mov dh,'4'
+
+直接定义地址表什么意思
+直接在数据里面定义 '0123456789abcdef'
+假设是34H我们要显示4,我们这样做 
+mov al,34H
+mov dl,al
+
+and al,00001111B
+
+mov bx,0	;bx这里是下标的意思
+mov bl,al	;定义下标的位置
+然后在这里找'0123456789abcdef'一一相对应
+说人话就是利用了数组下标
+下节课用地址的方法去找call指令的偏移地址
+我们先回到这节课直接定义地址表
+assume cs:code,ds:data,ss:stack
+
+data segment
+ARRAY	db	1aH,2bH,3cH,4dH,5eH,6fH	;数组的意思
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call show_byte
+
+		mov ax,4C00H
+		int 21H
+
+;===================================
+init_reg:
+		mov bx,0b800H
+		mov es,bx
+		mov bx,data
+		mov ds,bx
+
+		ret
+;===================================
+show_byte:
+		mov si,offset ARRAY
+		mov di,160*10+2*40
+		mov cx,6
+
+showByte:		mov al,ds:[si]
+		call show_hex
+		inc si
+		loop showByte
+
+		ret
+;===================================
+show_hex:		jmp showHex
+
+string	db	'0123456789ABCDEF'
+
+showHex:		mov ah,al	;ah=7bH
+		and al,00001111B	;al=bH
+		shr ah,1
+		shr ah,1
+		shr ah,1
+		shr ah,1	;ah=7
+
+		mov bx,0
+		mov bl,al	;先显示al低地址,在显示高地址
+		mov al,cs:string[bx]	;还可以把直接定义地址表定义在其他地方,不过段地址要写对,最好写段地址,
+
+		mov bl,ah
+		mov ah,cs:string[bx]
+
+		mov es:[di],ah
+		mov es:[di+2],al
+		add di,6
+
+		ret
+
+code ends
+
+end start
+
+直接定址表使用
+数学上的三角函数编程的时候就知道了
+sin(0) = 0
+sin(30) = 0.5
+sin(60) = 0.866
+sin(90) = 1
+sin(120) = 0.866
+sin(150) = 0.5
+sin(180) = 0
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call init_reg
+		call show_sin
+
+		mov ax,4C00H
+		int 21H
+;===================================
+show_sin:		jmp showSin
+
+;**************************************************************
+;**************************************************************
+;**************************************************************
+degree0		db	'0',0	;角度的意思
+degree30		db	'0.5',0
+degree60		db	'0.866',0
+degree90		db	'1',0
+degree120	db	'0.866',0
+degree150	db	'0.5',0
+degree180	db	'0',0
+
+ADDRESS_DEGREE	dw	offset degree0	;address_degree[0]1
+		dw	offset degree30	;address_degree[2]2
+		dw	offset degree60	;address_degree[4]3
+		dw	offset degree90
+		dw	offset degree120
+		dw	offset degree150
+		dw	offset degree180
+;**************************************************************
+;**************************************************************
+;**************************************************************
+
+;call cpy_Boot	offset call word ptr cs:[bx] 下节课就这类的变成 类似函数指针
+
+showSin:		push ax
+		push bx
+		push cx
+		push dx
+		push si
+		push di
+
+		mov dx,0
+		mov ax,120	;角度
+		mov bx,30
+		div bx		;ax存放的是商
+
+		mov bx,ax		;因ADDRESS_DEGREE里全是dw字型数据,所以要乘2,下标变成8
+		add bx,bx	
+		mov si,cs:ADDRESS_DEGREE[bx]
+
+		mov di,160*10+2*40
+		call show_string
+
+		pop di
+		pop si
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+		ret
+;===================================
+show_string:	push dx
+		push ds
+		push es
+		push si
+		push di
+
+showString:	mov dl,ds:[si]
+		cmp dl,0
+		je showStringRet
+		mov es:[di],dl
+		add di,2
+		inc si
+		jmp showString
+
+showStringRet:
+		pop di
+		pop si
+		pop es
+		pop si
+		pop di
+		ret
+;===================================
+init_reg:
+		mov bx,0b800H
+		mov es,bx
+		mov bx,cs
+		mov ds,bx
+
+		ret
+
+code ends
+
+end start
+
+实验16
