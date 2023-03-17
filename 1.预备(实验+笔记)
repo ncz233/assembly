@@ -9114,3 +9114,223 @@ code ends
 end start
 
 实验16
+安装一个新的int 7cH中断,完成下列功能
+1.清理屏幕
+2.设置前景色
+3.设置背景色
+4.向上滚动一行
+参数:	ah=功能号	0=1号功能
+		1=2号功能
+		2=3号功能
+		3=4号功能
+	al=传送颜色的值	al=0,2,3,4,5,6,7
+dw	offset 1号功能
+dw	offset 2号功能
+ah
+mov bx,0
+mov bl,ah
+add bx,bx
+开始写代码
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call cpy_new_int7cH
+		call set_new_int7cH
+
+		mov ah,0	;功能号
+		mov al,4	;改颜色
+		int 7cH
+
+		mov ax,4C00H
+		int 21H
+;=================================
+new_int7cH:	jmp newInt7cH
+
+;************************************************************************
+;************************************************************************
+;************************************************************************
+TABLE	dw	offset clear_screen - offset new_int7cH + 7e00H	;把函数赋值给数组,也就是call变成偏移地址
+	dw	offset set_pre_screen - offset new_int7cH + 7e00H
+	dw	offset set_back_screen - offset new_int7cH + 7e00H	;讲人话是,这个是复制前的操作,这个造作是把指针指向复制后的
+	dw	offset set_screen - offset new_int7cH + 7e00H	;为什么不直接写offset set_screen因为这个是要复制到7e00H
+;************************************************************************
+;************************************************************************
+;************************************************************************
+
+newInt7cH:	;call clear_screen	;清空屏幕
+		;call set_pre_screen	;字体颜色
+		;call set_back_screen	;背景颜色
+		;call set_screen	;把最后一行复制到第一行
+
+		push ax
+		push bx
+		push es
+
+		;功能号传进来,复制到7e00H
+		;cs:TABLE[bx]	;这个是不行的,这个时候也就是复制前cs和复制后的cs不一致
+
+		mov bx,0
+		mov es,bx
+
+		mov bl,ah
+		add bx,bx
+		add bx,offset TABLE - offset new_int7cH + 7e00H
+		call word ptr es:[bx]
+
+
+new_int7cH_Ret:
+		pop es
+		pop bx
+		pop ax
+		iret
+;=================================
+set_screen:	push bx
+		push cx
+		push es
+		push si
+		push di
+
+		mov bx,0b800H
+		mov es,bx
+		mov ds,bx
+
+		mov cx,80*24	;80个字型数据
+		mov si,160
+		mov di,0
+
+		cld
+		rep movsw
+
+		mov bx,160*24
+		mov cx,80
+		mov dx,0700H
+
+setRowBlank:	mov es:[bx],dx
+		add bx,2
+		loop setRowBlank
+
+		pop di
+		pop si
+		pop es
+		pop cx
+		pop bx
+		ret
+;=================================
+set_back_screen:
+		push ax
+		push bx
+		push cx
+		push es
+
+		mov bx,0b800H		
+		mov es,bx
+		mov bx,1
+
+		mov cl,4
+		shl al,cl
+		mov cx,2000
+
+setBackScreen:	and byte ptr es:[bx],10001111B
+		or es:[bx],al
+		add bx,2
+		loop setBackScreen
+
+		pop es
+		pop cx
+		pop bx
+		pop ax
+		ret
+;=================================
+set_pre_screen:
+		push ax
+		push bx
+		push cx
+		push es
+
+		mov bx,0b800H
+		mov es,bx
+		mov bx,1
+
+		mov cx,2000
+
+setPreScreen:	and byte ptr es:[bx],11111000B
+		or es:[bx],al
+		add bx,2
+		loop setPreScreen
+
+		pop es
+		pop cx
+		pop bx
+		pop ax
+		ret
+;=================================
+clear_screen:	push bx
+		push cx
+		push es
+		push dx
+
+		mov bx,0b800H
+		mov es,bx
+		mov bx,0
+
+		mov dx,0700H
+		mov cx,2000
+
+clearScreen:	mov es:[bx],dx
+		add bx,2
+		loop clearScreen
+
+		pop dx
+		pop es
+		pop cx
+		pop bx
+		ret
+
+new_int7cH_end:
+		nop
+;=================================
+set_new_int7cH:
+		mov bx,0
+		mov es,bx
+
+		cli
+		mov word ptr es:[7cH*4],7e00H
+		mov word ptr es:[7ch*4+2],0
+		sti
+
+		ret
+;=================================
+cpy_new_int7cH:
+		mov bx,cs
+		mov ds,bx
+		mov si,offset new_int7cH
+
+		mov bx,0
+		mov es,bx
+		mov di,7e00H
+
+		mov cx,offset new_int7cH_end - offset new_int7cH
+		cld
+		rep movsb
+
+		ret
+
+code ends
+
+end start
+
+
+第17章声明 使用bios进行键盘输入和磁盘读写
