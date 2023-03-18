@@ -9334,3 +9334,105 @@ end start
 
 
 第17章声明 使用bios进行键盘输入和磁盘读写
+最后的综合研究以后说
+最后一章有个课程设计2,这个课程设计2囊括了前面所有的内容
+磁盘读写和软盘有关系,写在在机器上是找不到这个软盘东西的,虽然还有软盘这个接口
+所以软盘需要用软件去模拟 还要虚拟机
+所以在最后课程设计2中把磁盘读写给剥离出来,并且也会知道为什么复制到0:7e00的位置
+但是后面也会将磁盘读写的问题,但是需要虚拟机和一个模拟软盘的软件
+
+int16H bios提供的中断
+int 9中断时bios提供的
+自己重新写的话要模拟int 9,然后把原int 9的位置数据放到0:200中
+还知道bios里面有个键盘缓冲区 一共15个字型数据
+in al,60H	;已知60端口有扫描码是字节数据
+而键盘缓冲区是字型数据,高位保存扫描码,低位保存ASCII码
+a是字符在屏幕上显示
+a对应是1e61H 61H是ascii码 1e是扫描码
+这些是int9做的
+如按b是3062H
+c=2e63H
+d=2064H
+e=1265H
+键盘缓冲区
+int 9是从端口60H读取东西
+那键盘缓冲区如何读取呢
+bios新的中断 int 16H 怎么用
+mov ah,0	;传送功能号,这0号功能就是从键盘缓冲区读取出来
+int 16H
+读取在什么地方呢,在ax中,ah=扫描码 al=ascii码
+怎么读取的
+如键盘缓冲区有1e61H 3062H
+mov ah,0
+int 16H
+就把ah=1eH al=61H 然后就把拿出来的在键盘缓冲区中清空
+如果在执行,就把 ah=30H al=62H,然后在键盘缓存区清空对应的
+后面同理
+如果15个字型数据填满,他会报警蜂鸣声,还会把前面的覆盖掉从第一个开始覆盖
+int 16H做那些事情
+1.检测键盘缓冲区是否有数据
+2.没有继续检测
+3.读取缓冲区第一个字型数据的键盘输入
+4.ah=高位(扫描码) al=地位(ascii码)
+5.在键盘缓冲区读取的字型数据删除
+开始编程
+assume cs:code,ds:data,ss:stack
+
+data segment
+	db	128 dup (0)
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call get_color
+
+		mov ax,4C00H
+		int 21H
+;==============================
+get_color:
+		mov ah,0	;调用0号功能
+		int 16H
+
+		mov ah,1	;编程技巧
+		cmp al,'r'	;red
+		je red
+		cmp al,'g'
+		je green
+		cmp al,'b'
+		je blue
+		;jmp getColorRet
+		jmp get_color
+
+		ret
+
+red:		shl ah,1
+green:		shl ah,1
+
+blue:		mov bx,0b800H
+		mov es,bx
+		mov bx,1
+
+		mov cx,2000
+setColor:		and byte ptr es:[bx],11110000B
+		or es:[bx],ah
+		add bx,2
+		loop setColor
+
+		jmp get_color
+
+getcColorRet:	mov ax,4c00H
+		int 21H
+
+code ends
+
+end start
+
+字符串的输入
