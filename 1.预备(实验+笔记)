@@ -9436,3 +9436,125 @@ code ends
 end start
 
 字符串的输入
+mov ah,0
+int 16H
+1.检测键盘缓冲区是否有数据
+2.没有继续检测
+3.读取缓冲区第一个字型数据的键盘输入
+4.ah=高位(扫描码) al=地位(ascii码)
+5.在键盘缓冲区读取的字型数据删除
+编程
+mov ah,0
+int 16H
+
+al = ASCII	;a
+
+data segment
+STRING	100 dup(0)	;show_string
+data ends
+
+mov bx,0	;栈顶,字型数据
+STRING[bx]	al=a 模拟栈
+意思就是,做一个字符串的输入,在键盘缓冲区(字型)中al是ascii码所以,用db字节去访问(mov al string[bx])传到al中并且打印出来
+开始写代码
+assume cs:code,ds:data,ss:stack
+
+data segment
+STRING	db	128 dup (0)	;shou_string 方便,以0结尾0-127,但是是0-126,因为要保留最后的0
+TOP	dw	0
+data ends
+
+stack segment stack
+	db	128 dup (0)
+stack ends
+
+code segment
+
+start:		mov ax,stack
+		mov ss,ax
+		mov sp,128
+
+		call int_reg
+		call get_string
+
+		mov ax,4C00H
+		int 21H
+;===================================
+get_string:		mov si,offset STRING
+		mov di,160*10+2*40
+		mov bx,0
+
+getString:		call clear_buff
+		mov ah,0
+		int 16H
+		cmp al,20H
+		jb notChat	;不是字符的,e=,a>,b<
+		call char_push	;是字符放到string
+		call show_string
+		jmp getString
+
+getStringRet:	ret
+
+notChat:		cmp ah,0eH	;扫描码backspace
+		je backspace
+		cmp ah,1cH	;回车enter mov al,0
+		je getStringRet
+		jmp getString
+;=======================================
+clear_buff:		mov ah,1	;1号功能如果里面有内容把zr标志位设置成0
+		int 16H
+		jz clearBuffRet	;和je是一样的因判断标志位
+		int 16H
+		jmp clear_buff
+
+clearBuffRet:	ret
+;=======================================
+backspace:	call char_pop
+		jmp getString
+;=======================================
+char_pop:		cmp bx,0
+		je charPopRet
+		dec bx
+		mov byte ptr ds:[si+bx],0
+		
+charPopRet:	ret
+;===================================
+char_push:	cmp bx,126	;判断127
+		ja charPushRET
+		mov ds:[si+bx],al	;string[0]='a'	bx=1
+		inc bx
+charPushRET:	ret
+;===================================
+show_string:	push dx
+		push ds
+		push es
+		push si
+		push di
+
+showString:	mov dl,ds:[si]
+		cmp dl,0
+		je showStringRet
+		mov es:[di],dl
+		add di,2
+		inc si
+		jmp showString
+
+showStringRet:	mov byte ptr es:[di],0
+		pop di
+		pop si
+		pop es
+		pop ds
+		pop dx
+		ret
+;===================================
+int_reg:		mov bx,0b800H
+		mov es,bx
+		mov bx,data
+		mov ds,bx
+		ret
+
+code ends
+
+end start
+
+字符串用书上的方法
